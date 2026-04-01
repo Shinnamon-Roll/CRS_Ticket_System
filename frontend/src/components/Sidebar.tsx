@@ -7,7 +7,6 @@ import {
   BarChart3,
   Settings,
   ClipboardList,
-  Wrench,
   UserCog,
   ChevronRight,
   Loader2,
@@ -24,8 +23,7 @@ interface MenuItem {
 const menuItems: MenuItem[] = [
   { path: '/', label: 'แดชบอร์ด', icon: <LayoutDashboard className="w-4.5 h-4.5" />, roles: ['admin'] },
   { path: '/requests', label: 'Request ทั้งหมด', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { path: '/tasks', label: 'งานที่ฉันรับผิดชอบ', icon: <Wrench className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { path: '/stats', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/stats', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
   { path: '/admin/management', label: 'จัดการแผนกและผู้ใช้', icon: <UserCog className="w-4.5 h-4.5" />, roles: ['admin'] },
   { path: '/my-requests', label: 'สรุปงานของฉัน', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
   { path: '/new-request', label: 'ส่ง Request ใหม่', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
@@ -106,35 +104,36 @@ export default function Sidebar() {
           })}
         </nav>
 
-        {/* Active Tasks Section */}
-        <div className="border-t border-cream-200 p-3">
-          <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-brown-400 flex items-center gap-1.5">
-            <Loader2 className="w-3 h-3 animate-spin" />
-            งานปัจจุบัน ({activeTasks.length})
-          </p>
+        {currentRole === 'user' && (
+          <div className="border-t border-cream-200 p-3">
+            <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-brown-400 flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              งานปัจจุบัน ({activeTasks.length})
+            </p>
 
-          <div className="space-y-1.5 max-h-44 overflow-y-auto">
-            {activeTasks.length === 0 ? (
-              <p className="px-3 py-2 text-xs text-brown-400 italic">ไม่มีงานที่กำลังดำเนินการ</p>
-            ) : (
-              activeTasks.slice(0, 4).map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-2 px-3 py-2 rounded-lg bg-cream-100/50 hover:bg-cream-200/60 transition-colors cursor-pointer group"
-                >
-                  <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${getPriorityDot(task.priority)}`} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-medium text-brown-700 truncate group-hover:text-brown-800">
-                      {task.code}
-                    </p>
-                    <p className="text-[11px] text-brown-500 truncate">{task.title}</p>
-                    <p className="text-[10px] text-brown-400 mt-0.5">{getStageLabel(task.stage)}</p>
+            <div className="space-y-1.5 max-h-44 overflow-y-auto">
+              {activeTasks.length === 0 ? (
+                <p className="px-3 py-2 text-xs text-brown-400 italic">ไม่มีงานที่กำลังดำเนินการ</p>
+              ) : (
+                activeTasks.slice(0, 4).map((task) => (
+                  <div
+                    key={task.id}
+                    className="flex items-start gap-2 px-3 py-2 rounded-lg bg-cream-100/50 hover:bg-cream-200/60 transition-colors cursor-pointer group"
+                  >
+                    <span className={`mt-1.5 w-2 h-2 rounded-full shrink-0 ${getPriorityDot(task.priority)}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-medium text-brown-700 truncate group-hover:text-brown-800">
+                        {task.code}
+                      </p>
+                      <p className="text-[11px] text-brown-500 truncate">{task.title}</p>
+                      <p className="text-[10px] text-brown-400 mt-0.5">{getStageLabel(task.stage)}</p>
+                    </div>
                   </div>
-                </div>
-              ))
-            )}
+                ))
+              )}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Footer */}
         <div className="p-3 border-t border-cream-200">

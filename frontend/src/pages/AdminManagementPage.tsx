@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Building2, Trash2, UserCog, Users } from 'lucide-react';
+import { Building2, Pencil, Trash2, UserCog, Users, X } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import type { Department } from '../types';
 
@@ -12,6 +12,14 @@ interface AdminUser {
   role: 'admin' | 'user';
   department_id?: number | null;
   department?: { id: number; name: string } | null;
+}
+
+interface EditingUser {
+  id: number;
+  name: string;
+  email: string;
+  role: 'admin' | 'user';
+  departmentId: string;
 }
 
 export default function AdminManagementPage() {
@@ -27,6 +35,8 @@ export default function AdminManagementPage() {
   const [newUserDepartmentId, setNewUserDepartmentId] = useState('');
   const [newUserRole, setNewUserRole] = useState<'admin' | 'user'>('user');
 
+  const [editingUser, setEditingUser] = useState<EditingUser | null>(null);
+  const [deletingUser, setDeletingUser] = useState<AdminUser | null>(null);
   const [error, setError] = useState('');
 
   const departmentOptions = useMemo(
@@ -115,6 +125,29 @@ export default function AdminManagementPage() {
     await loadData();
   };
 
+  const updateUser = async () => {
+    if (!editingUser) return;
+
+    const res = await fetch(`${API_BASE_URL}/api/admin/users/${editingUser.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: editingUser.name.trim(),
+        email: editingUser.email.trim(),
+        role: editingUser.role,
+        department_id: Number(editingUser.departmentId),
+      }),
+    });
+
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'แก้ไขผู้ใช้ไม่สำเร็จ' }));
+      throw new Error(err.error || 'แก้ไขผู้ใช้ไม่สำเร็จ');
+    }
+
+    setEditingUser(null);
+    await loadData();
+  };
+
   const deleteUser = async (id: number) => {
     const res = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('ลบผู้ใช้ไม่สำเร็จ');
@@ -136,7 +169,7 @@ export default function AdminManagementPage() {
           <UserCog className="w-6 h-6 text-gold-500" />
           จัดการแผนกและผู้ใช้งาน
         </h2>
-        <p className="text-sm text-brown-500 mt-1">Admin สามารถสร้าง/ลบแผนก และจัดการ User ในแต่ละแผนก</p>
+        <p className="text-sm text-brown-500 mt-1">Admin สามารถสร้าง/ลบแผนก และจัดการข้อมูล User ในแต่ละแผนก</p>
       </div>
 
       {error ? <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">{error}</div> : null}
@@ -217,7 +250,7 @@ export default function AdminManagementPage() {
                 <th className="py-2">Email</th>
                 <th className="py-2">แผนก</th>
                 <th className="py-2">Role</th>
-                <th className="py-2 w-24">จัดการ</th>
+                <th className="py-2 w-40">จัดการ</th>
               </tr>
             </thead>
             <tbody>
@@ -228,13 +261,28 @@ export default function AdminManagementPage() {
                   <td className="py-2">{u.department?.name || '-'}</td>
                   <td className="py-2 uppercase text-xs">{u.role}</td>
                   <td className="py-2">
-                    <button
-                      onClick={() => void deleteUser(u.id).catch((e: Error) => setError(e.message))}
-                      className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-800"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      ลบ
-                    </button>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => setEditingUser({
+                          id: u.id,
+                          name: u.name,
+                          email: u.email,
+                          role: u.role,
+                          departmentId: String(u.department?.id || u.department_id || ''),
+                        })}
+                        className="inline-flex items-center gap-1 text-xs text-blue-700 hover:text-blue-800"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                        แก้ไข
+                      </button>
+                      <button
+                        onClick={() => setDeletingUser(u)}
+                        className="inline-flex items-center gap-1 text-xs text-red-700 hover:text-red-800"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        ลบ
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -242,6 +290,67 @@ export default function AdminManagementPage() {
           </table>
         </div>
       </section>
+
+      {editingUser && (
+        <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-lg bg-white rounded-2xl border border-brown-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-bold text-brown-800">แก้ไขข้อมูลผู้ใช้</h4>
+              <button onClick={() => setEditingUser(null)} className="p-1 rounded-lg hover:bg-brown-100">
+                <X className="w-4 h-4 text-brown-500" />
+              </button>
+            </div>
+            <div className="space-y-3">
+              <input value={editingUser.name} onChange={(e) => setEditingUser({ ...editingUser, name: e.target.value })} className="w-full rounded-xl border border-brown-200 px-3 py-2 text-sm" placeholder="ชื่อ" />
+              <input value={editingUser.email} onChange={(e) => setEditingUser({ ...editingUser, email: e.target.value })} className="w-full rounded-xl border border-brown-200 px-3 py-2 text-sm" placeholder="Email" />
+              <div className="grid grid-cols-2 gap-2">
+                <select value={editingUser.departmentId} onChange={(e) => setEditingUser({ ...editingUser, departmentId: e.target.value })} className="rounded-xl border border-brown-200 px-3 py-2 text-sm">
+                  {departmentOptions.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+                <select value={editingUser.role} onChange={(e) => setEditingUser({ ...editingUser, role: e.target.value as 'admin' | 'user' })} className="rounded-xl border border-brown-200 px-3 py-2 text-sm">
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                </select>
+              </div>
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setEditingUser(null)} className="px-4 py-2 rounded-xl border border-brown-200 text-sm">ยกเลิก</button>
+              <button
+                onClick={() => void updateUser().catch((e: Error) => setError(e.message))}
+                className="px-4 py-2 rounded-xl bg-brown-700 text-cream-50 text-sm font-semibold hover:bg-brown-800"
+              >
+                บันทึกการแก้ไข
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deletingUser && (
+        <div className="fixed inset-0 z-[80] bg-black/40 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="w-full max-w-md bg-white rounded-2xl border border-brown-200 p-5">
+            <h4 className="text-lg font-bold text-brown-800 mb-2">ยืนยันการลบผู้ใช้</h4>
+            <p className="text-sm text-brown-600 mb-5">
+              คุณแน่ใจหรือไม่ว่าต้องการลบผู้ใช้ <span className="font-semibold">{deletingUser.name}</span> ({deletingUser.email})?
+            </p>
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setDeletingUser(null)} className="px-4 py-2 rounded-xl border border-brown-200 text-sm">ยกเลิก</button>
+              <button
+                onClick={() => {
+                  void deleteUser(deletingUser.id)
+                    .then(() => setDeletingUser(null))
+                    .catch((e: Error) => setError(e.message));
+                }}
+                className="px-4 py-2 rounded-xl bg-red-600 text-white text-sm font-semibold hover:bg-red-700"
+              >
+                ยืนยันการลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

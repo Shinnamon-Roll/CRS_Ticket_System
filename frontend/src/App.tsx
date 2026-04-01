@@ -36,7 +36,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={currentRole === 'admin' ? <DashboardPage /> : <Navigate to="/my-requests" />} />
             <Route path="/requests" element={<AllRequestsPage />} />
-            <Route path="/tasks" element={<MyTasksPage />} />
+            <Route path="/tasks" element={currentRole === 'user' ? <MyTasksPage /> : <Navigate to="/" />} />
             <Route path="/stats" element={<StatisticsPage />} />
             <Route path="/admin/management" element={currentRole === 'admin' ? <AdminManagementPage /> : <Navigate to="/" />} />
             <Route path="/my-requests" element={<MyRequestsPage />} />

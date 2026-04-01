@@ -1,10 +1,30 @@
 import { useApp } from '../context/AppContext';
-import TicketCard from '../components/TicketCard';
 import { ListTodo, Search } from 'lucide-react';
 import { useState, useMemo } from 'react';
 
+const stageLabel: Record<string, string> = {
+  request: 'Request',
+  doing: 'Doing',
+  review: 'Review',
+  done: 'Done',
+};
+
+const priorityColor: Record<string, string> = {
+  urgent: 'bg-red-100 text-red-700 border-red-200',
+  high: 'bg-orange-100 text-orange-700 border-orange-200',
+  medium: 'bg-yellow-100 text-yellow-700 border-yellow-200',
+  low: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+};
+
+const stageColor: Record<string, string> = {
+  request: 'bg-amber-100 text-amber-700 border-amber-200',
+  doing: 'bg-blue-100 text-blue-700 border-blue-200',
+  review: 'bg-purple-100 text-purple-700 border-purple-200',
+  done: 'bg-emerald-100 text-emerald-700 border-emerald-200',
+};
+
 export default function AllRequestsPage() {
-  const { tickets } = useApp();
+  const { tickets, openTicketChat } = useApp();
   const [searchTerm, setSearchTerm] = useState('');
 
   const filtered = useMemo(() => {
@@ -55,9 +75,45 @@ export default function AllRequestsPage() {
           <p className="text-sm">ไม่พบ Request ที่ตรงกับการค้นหา</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {filtered.map((ticket, idx) => (
-            <TicketCard key={ticket.id} ticket={ticket} index={idx} />
+        <div className="space-y-3">
+          {filtered.map((ticket) => (
+            <button
+              key={ticket.id}
+              onClick={() => openTicketChat(ticket.id)}
+              className="w-full text-left rounded-2xl border border-brown-100 bg-white hover:border-brown-300 hover:shadow-md transition-all px-4 py-3"
+            >
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                <span className="text-xs font-bold text-brown-500">{ticket.code}</span>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${priorityColor[ticket.priority] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                  {ticket.priority.toUpperCase()}
+                </span>
+                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-full border ${stageColor[ticket.stage] || 'bg-gray-100 text-gray-700 border-gray-200'}`}>
+                  {stageLabel[ticket.stage] || ticket.stage}
+                </span>
+                <span className="text-[11px] text-brown-400">{ticket.department}</span>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-4">
+                <div className="lg:col-span-4 min-w-0">
+                  <p className="text-sm font-semibold text-brown-800 line-clamp-1">{ticket.title}</p>
+                  <p className="text-xs text-brown-500 mt-1 line-clamp-2">{ticket.description}</p>
+                </div>
+
+                <div className="lg:col-span-3 text-xs text-brown-600">
+                  <p className="line-clamp-1"><span className="font-semibold text-brown-700">Location:</span> {ticket.location || '-'}</p>
+                  <p className="line-clamp-1 mt-1"><span className="font-semibold text-brown-700">Requester:</span> {ticket.requestorName || ticket.reportedByName || '-'}</p>
+                </div>
+
+                <div className="lg:col-span-3 text-xs text-brown-600">
+                  <p className="line-clamp-1"><span className="font-semibold text-brown-700">Owner:</span> {ticket.ownerName || ticket.assignedToName || '-'}</p>
+                  <p className="line-clamp-1 mt-1"><span className="font-semibold text-brown-700">Updated:</span> {new Date(ticket.updatedAt).toLocaleString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+
+                <div className="lg:col-span-2 flex lg:justify-end items-center">
+                  <span className="text-[11px] text-brown-500 bg-cream-100 px-2.5 py-1 rounded-lg">เปิดแชท</span>
+                </div>
+              </div>
+            </button>
           ))}
         </div>
       )}
