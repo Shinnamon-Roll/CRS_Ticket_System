@@ -8,6 +8,7 @@ import {
   Settings,
   ClipboardList,
   Wrench,
+  UserCog,
   ChevronRight,
   Loader2,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ const menuItems: MenuItem[] = [
   { path: '/requests', label: 'Request ทั้งหมด', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
   { path: '/tasks', label: 'งานที่ฉันรับผิดชอบ', icon: <Wrench className="w-4.5 h-4.5" />, roles: ['admin'] },
   { path: '/stats', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/admin/management', label: 'จัดการแผนกและผู้ใช้', icon: <UserCog className="w-4.5 h-4.5" />, roles: ['admin'] },
   { path: '/my-requests', label: 'สรุปงานของฉัน', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
   { path: '/new-request', label: 'ส่ง Request ใหม่', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
   { path: '/settings', label: 'ตั้งค่า', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
