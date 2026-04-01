@@ -9,6 +9,7 @@ import MyTasksPage from './pages/MyTasksPage';
 import StatisticsPage from './pages/StatisticsPage';
 import SettingsPage from './pages/SettingsPage';
 import StageSummaryPage from './pages/StageSummaryPage';
+import TicketChatWidget from './components/TicketChatWidget';
 import { useApp } from './context/AppContext';
 
 export default function App() {
@@ -40,6 +41,8 @@ export default function App() {
           </Routes>
         </div>
       </main>
+
+      <TicketChatWidget />
     </div>
   );
 }

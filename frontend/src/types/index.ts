@@ -55,3 +55,13 @@ export interface StageInfo {
   borderColor: string;
   icon: string;
 }
+
+export interface ChatMessage {
+  id: string;
+  ticketId: string;
+  senderId: string;
+  senderName: string;
+  text?: string;
+  imageUrl?: string;
+  createdAt: string;
+}

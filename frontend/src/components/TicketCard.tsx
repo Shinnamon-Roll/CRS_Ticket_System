@@ -53,13 +53,14 @@ const priorityConfig: Record<
 
 export default function TicketCard({ ticket, index }: TicketCardProps) {
   const pConfig = priorityConfig[ticket.priority];
-  const { currentRole, currentUser, reviewTicket, assignTicket } = useApp();
+  const { currentRole, currentUser, reviewTicket, assignTicket, openTicketChat } = useApp();
 
   const isReviewStage = ticket.stage === 'review' && currentRole === 'user';
   const canAcceptTask = currentRole === 'admin' && !ticket.assignedTo;
 
   const cardContent = (
     <div
+      onClick={() => openTicketChat(ticket.id)}
       className="animate-fade-in-up bg-white rounded-xl border border-brown-100/60 p-3.5 hover:shadow-lg hover:shadow-brown-200/30 hover:border-brown-200/80
         transition-all duration-300 cursor-pointer group h-full flex flex-col"
       style={{ animationDelay: `${(index ?? 0) * 60}ms` }}
@@ -150,6 +151,7 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
             <button
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 reviewTicket(ticket.id, true);
               }}
               className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold transition-colors"
@@ -160,6 +162,7 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
             <button
               onClick={(e) => {
                 e.preventDefault();
+                e.stopPropagation();
                 reviewTicket(ticket.id, false);
               }}
               className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
@@ -174,6 +177,7 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
           <button
             onClick={(e) => {
               e.preventDefault();
+              e.stopPropagation();
               assignTicket(ticket.id, currentUser.id);
             }}
             className="mt-2 w-full px-2 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold transition-colors"

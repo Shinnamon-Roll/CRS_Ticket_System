@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Role, Ticket, User, Notification, TicketStage, Priority } from '../types';
+import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessage } from '../types';
 import { mockNotifications } from '../data/mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -41,6 +41,7 @@ interface AppContextType {
   // Role switching
   currentRole: Role;
   currentUser: User;
+  users: User[];
   switchRole: () => void;
 
   // Tickets
@@ -52,6 +53,14 @@ interface AppContextType {
   getUserTickets: () => Ticket[];
   updateTicketStage: (id: string, stage: TicketStage) => Promise<void>;
   reviewTicket: (id: string, isApproved: boolean) => Promise<void>;
+
+  // Ticket chat
+  activeChatTicketId: string | null;
+  openTicketChat: (ticketId: string) => void;
+  closeTicketChat: () => void;
+  getTicketChatMessages: (ticketId: string) => ChatMessage[];
+  sendTicketChatMessage: (ticketId: string, payload: { text?: string; image?: File | null }) => Promise<void>;
+  canCurrentUserChat: (ticket: Ticket) => boolean;
 
   // Notifications
   notifications: Notification[];
@@ -72,6 +81,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeChatTicketId, setActiveChatTicketId] = useState<string | null>(null);
+  const [chatMessagesByTicket, setChatMessagesByTicket] = useState<Record<string, ChatMessage[]>>({});
 
   const currentUser =
     users.find((u) => u.role === currentRole) ||
@@ -225,6 +236,65 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTickets((prev) => prev.map((t) => (t.id === id ? mapped : t)));
   }, [mapTicket]);
 
+  const openTicketChat = useCallback((ticketId: string) => {
+    setActiveChatTicketId(ticketId);
+  }, []);
+
+  const closeTicketChat = useCallback(() => {
+    setActiveChatTicketId(null);
+  }, []);
+
+  const getTicketChatMessages = useCallback(
+    (ticketId: string) => chatMessagesByTicket[ticketId] || [],
+    [chatMessagesByTicket]
+  );
+
+  const canCurrentUserChat = useCallback(
+    (ticket: Ticket) => {
+      if (!ticket.assignedTo) return false;
+      return currentUser.id === ticket.reportedBy || currentUser.id === ticket.assignedTo;
+    },
+    [currentUser.id]
+  );
+
+  const sendTicketChatMessage = useCallback(
+    async (ticketId: string, payload: { text?: string; image?: File | null }) => {
+      const ticket = tickets.find((t) => t.id === ticketId);
+      if (!ticket) throw new Error('ticket not found');
+      if (!canCurrentUserChat(ticket)) throw new Error('permission denied');
+
+      const text = payload.text?.trim();
+      const hasImage = Boolean(payload.image);
+      if (!text && !hasImage) return;
+
+      let imageUrl: string | undefined;
+      if (payload.image) {
+        imageUrl = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(String(reader.result || ''));
+          reader.onerror = () => reject(new Error('failed to read image'));
+          reader.readAsDataURL(payload.image as Blob);
+        });
+      }
+
+      const message: ChatMessage = {
+        id: `${ticketId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        ticketId,
+        senderId: currentUser.id,
+        senderName: currentUser.name,
+        text,
+        imageUrl,
+        createdAt: new Date().toISOString(),
+      };
+
+      setChatMessagesByTicket((prev) => ({
+        ...prev,
+        [ticketId]: [...(prev[ticketId] || []), message],
+      }));
+    },
+    [canCurrentUserChat, currentUser.id, currentUser.name, tickets]
+  );
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markNotificationRead = useCallback((id: string) => {
@@ -242,6 +312,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       value={{
         currentRole,
         currentUser,
+        users,
         switchRole,
         tickets,
         refreshTickets,
@@ -251,6 +322,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         getUserTickets,
         updateTicketStage,
         reviewTicket,
+        activeChatTicketId,
+        openTicketChat,
+        closeTicketChat,
+        getTicketChatMessages,
+        sendTicketChatMessage,
+        canCurrentUserChat,
         notifications,
         unreadCount,
         markNotificationRead,
