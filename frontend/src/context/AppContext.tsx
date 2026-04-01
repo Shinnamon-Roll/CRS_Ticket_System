@@ -3,6 +3,7 @@ import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessa
 import { mockNotifications } from '../data/mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 
 interface BackendUser {
   id: number;
@@ -26,6 +27,21 @@ interface BackendTicket {
   assignee?: BackendUser | null;
   created_at: string;
   updated_at: string;
+}
+
+interface BackendChatMessage {
+  id: number;
+  ticket_id: number;
+  sender_id: number;
+  sender?: BackendUser;
+  message_text?: string | null;
+  image_url?: string | null;
+  created_at: string;
+}
+
+interface ChatWebSocketEvent {
+  type: 'message.created';
+  message: BackendChatMessage;
 }
 
 interface CreateTicketPayload {
@@ -83,6 +99,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeChatTicketId, setActiveChatTicketId] = useState<string | null>(null);
   const [chatMessagesByTicket, setChatMessagesByTicket] = useState<Record<string, ChatMessage[]>>({});
+  const [loadedChatTickets, setLoadedChatTickets] = useState<Record<string, boolean>>({});
 
   const currentUser =
     users.find((u) => u.role === currentRole) ||
@@ -134,6 +151,24 @@ export function AppProvider({ children }: { children: ReactNode }) {
       createdAt: ticket.created_at,
       updatedAt: ticket.updated_at,
       category: ticket.location,
+    };
+  }, []);
+
+  const mapChatMessage = useCallback((message: BackendChatMessage): ChatMessage => {
+    const imageUrl = message.image_url
+      ? message.image_url.startsWith('http')
+        ? message.image_url
+        : `${API_BASE_URL}${message.image_url}`
+      : undefined;
+
+    return {
+      id: String(message.id),
+      ticketId: String(message.ticket_id),
+      senderId: String(message.sender_id),
+      senderName: message.sender?.name || `User #${message.sender_id}`,
+      text: message.message_text || undefined,
+      imageUrl,
+      createdAt: message.created_at,
     };
   }, []);
 
@@ -249,6 +284,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [chatMessagesByTicket]
   );
 
+  const upsertChatMessage = useCallback((message: ChatMessage) => {
+    setChatMessagesByTicket((prev) => {
+      const exists = (prev[message.ticketId] || []).some((item) => item.id === message.id);
+      if (exists) return prev;
+      return {
+        ...prev,
+        [message.ticketId]: [...(prev[message.ticketId] || []), message],
+      };
+    });
+  }, []);
+
   const canCurrentUserChat = useCallback(
     (ticket: Ticket) => {
       if (!ticket.assignedTo) return false;
@@ -267,33 +313,94 @@ export function AppProvider({ children }: { children: ReactNode }) {
       const hasImage = Boolean(payload.image);
       if (!text && !hasImage) return;
 
-      let imageUrl: string | undefined;
+      const formData = new FormData();
+      formData.append('sender_id', currentUser.id);
+      if (text) {
+        formData.append('text', text);
+      }
       if (payload.image) {
-        imageUrl = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(String(reader.result || ''));
-          reader.onerror = () => reject(new Error('failed to read image'));
-          reader.readAsDataURL(payload.image as Blob);
-        });
+        formData.append('image', payload.image);
       }
 
-      const message: ChatMessage = {
-        id: `${ticketId}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        ticketId,
-        senderId: currentUser.id,
-        senderName: currentUser.name,
-        text,
-        imageUrl,
-        createdAt: new Date().toISOString(),
-      };
+      const res = await fetch(
+        `${API_BASE_URL}/api/tickets/${ticketId}/chat-messages?user_id=${encodeURIComponent(currentUser.id)}`,
+        {
+          method: 'POST',
+          body: formData,
+        }
+      );
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: 'failed to send chat message' }));
+        throw new Error(err.error || 'failed to send chat message');
+      }
 
-      setChatMessagesByTicket((prev) => ({
-        ...prev,
-        [ticketId]: [...(prev[ticketId] || []), message],
-      }));
+      const created: BackendChatMessage = await res.json();
+      upsertChatMessage(mapChatMessage(created));
     },
-    [canCurrentUserChat, currentUser.id, currentUser.name, tickets]
+    [canCurrentUserChat, currentUser.id, mapChatMessage, tickets, upsertChatMessage]
   );
+
+  useEffect(() => {
+    if (!activeChatTicketId || !currentUser.id || currentUser.id === '0') return;
+
+    const ticket = tickets.find((item) => item.id === activeChatTicketId);
+    if (!ticket || !canCurrentUserChat(ticket)) return;
+
+    let canceled = false;
+
+    const loadMessages = async () => {
+      if (loadedChatTickets[activeChatTicketId]) return;
+
+      try {
+        const res = await fetch(
+          `${API_BASE_URL}/api/tickets/${activeChatTicketId}/chat-messages?user_id=${encodeURIComponent(currentUser.id)}`
+        );
+        if (!res.ok) return;
+
+        const data: BackendChatMessage[] = await res.json();
+        if (canceled) return;
+
+        setChatMessagesByTicket((prev) => ({
+          ...prev,
+          [activeChatTicketId]: data.map(mapChatMessage),
+        }));
+        setLoadedChatTickets((prev) => ({ ...prev, [activeChatTicketId]: true }));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void loadMessages();
+
+    return () => {
+      canceled = true;
+    };
+  }, [activeChatTicketId, canCurrentUserChat, currentUser.id, loadedChatTickets, mapChatMessage, tickets]);
+
+  useEffect(() => {
+    if (!activeChatTicketId || !currentUser.id || currentUser.id === '0') return;
+
+    const ticket = tickets.find((item) => item.id === activeChatTicketId);
+    if (!ticket || !canCurrentUserChat(ticket)) return;
+
+    const ws = new WebSocket(
+      `${WS_BASE_URL}/ws/tickets/${activeChatTicketId}/chat?user_id=${encodeURIComponent(currentUser.id)}`
+    );
+
+    ws.onmessage = (event) => {
+      try {
+        const payload = JSON.parse(event.data) as ChatWebSocketEvent;
+        if (payload.type !== 'message.created') return;
+        upsertChatMessage(mapChatMessage(payload.message));
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    return () => {
+      ws.close();
+    };
+  }, [activeChatTicketId, canCurrentUserChat, currentUser.id, mapChatMessage, tickets, upsertChatMessage]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 

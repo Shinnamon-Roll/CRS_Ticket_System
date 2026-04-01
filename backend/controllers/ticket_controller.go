@@ -137,7 +137,7 @@ func (tc *TicketController) CreateTicket(c *gin.Context) {
 		assigneeID = &tmp
 	}
 
-	imageURL, err := saveUploadedImage(c)
+	imageURL, err := saveTicketUploadedImage(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
@@ -252,7 +252,7 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 	c.JSON(http.StatusOK, ticket)
 }
 
-func saveUploadedImage(c *gin.Context) (*string, error) {
+func saveTicketUploadedImage(c *gin.Context) (*string, error) {
 	file, err := c.FormFile("image")
 	if err != nil {
 		if err == http.ErrMissingFile {

@@ -25,6 +25,7 @@ func main() {
 
 	// Serve uploaded images from local storage.
 	router.Static("/uploads", "./uploads")
+	router.Static("/chat_uploads", "./chat_uploads")
 
 	routes.RegisterAPIRoutes(router, db)
 

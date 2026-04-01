@@ -46,7 +46,7 @@ func Connect() (*gorm.DB, error) {
 }
 
 func migrateAndSeed(db *gorm.DB) error {
-	if err := db.AutoMigrate(&models.User{}, &models.Ticket{}); err != nil {
+	if err := db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.ChatMessage{}); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
