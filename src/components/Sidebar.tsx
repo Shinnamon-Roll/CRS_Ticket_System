@@ -1,4 +1,5 @@
 import { useApp } from '../context/AppContext';
+import { useLocation, Link } from 'react-router-dom';
 import {
   LayoutDashboard,
   ListTodo,
@@ -13,24 +14,25 @@ import {
 import { stageConfig } from '../data/mockData';
 
 interface MenuItem {
-  id: string;
+  path: string;
   label: string;
   icon: React.ReactNode;
   roles: ('admin' | 'user')[];
 }
 
 const menuItems: MenuItem[] = [
-  { id: 'dashboard', label: 'แดชบอร์ด', icon: <LayoutDashboard className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { id: 'all-requests', label: 'Request ทั้งหมด', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { id: 'my-tasks', label: 'งานที่ฉันรับผิดชอบ', icon: <Wrench className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { id: 'statistics', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { id: 'my-requests', label: 'สรุปงานของฉัน', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
-  { id: 'new-request', label: 'ส่ง Request ใหม่', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
-  { id: 'settings', label: 'ตั้งค่า', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
+  { path: '/', label: 'แดชบอร์ด', icon: <LayoutDashboard className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/requests', label: 'Request ทั้งหมด', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/tasks', label: 'งานที่ฉันรับผิดชอบ', icon: <Wrench className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/stats', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin'] },
+  { path: '/my-requests', label: 'สรุปงานของฉัน', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
+  { path: '/new-request', label: 'ส่ง Request ใหม่', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
+  { path: '/settings', label: 'ตั้งค่า', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
 ];
 
 export default function Sidebar() {
-  const { currentRole, activePage, setActivePage, sidebarOpen, tickets, currentUser } = useApp();
+  const { currentRole, sidebarOpen, tickets, currentUser } = useApp();
+  const location = useLocation();
 
   const filteredMenu = menuItems.filter((item) => item.roles.includes(currentRole));
 
@@ -79,12 +81,12 @@ export default function Sidebar() {
             เมนูหลัก
           </p>
           {filteredMenu.map((item) => {
-            const isActive = activePage === item.id;
+            const isActive = location.pathname === item.path || (item.path === '/' && location.pathname.startsWith('/stage/'));
             return (
-              <button
-                key={item.id}
-                id={`nav-${item.id}`}
-                onClick={() => setActivePage(item.id)}
+              <Link
+                key={item.path}
+                id={`nav-${item.path.replace('/', '')}`}
+                to={item.path}
                 className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 group
                   ${
                     isActive
@@ -97,7 +99,7 @@ export default function Sidebar() {
                 </span>
                 <span className="flex-1 text-left">{item.label}</span>
                 {isActive && <ChevronRight className="w-3.5 h-3.5 opacity-60" />}
-              </button>
+              </Link>
             );
           })}
         </nav>

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, type ReactNode } from 'react';
-import type { Role, Ticket, User, Notification } from '../types';
+import type { Role, Ticket, User, Notification, TicketStage } from '../types';
 import { mockUsers, mockTickets, mockNotifications } from '../data/mockData';
 
 interface AppContextType {
@@ -13,6 +13,8 @@ interface AppContextType {
   setTickets: React.Dispatch<React.SetStateAction<Ticket[]>>;
   getTicketsByStage: (stage: string) => Ticket[];
   getUserTickets: () => Ticket[];
+  updateTicketStage: (id: string, stage: TicketStage) => void;
+  reviewTicket: (id: string, isApproved: boolean) => void;
 
   // Notifications
   notifications: Notification[];
@@ -23,8 +25,6 @@ interface AppContextType {
   // UI State
   sidebarOpen: boolean;
   setSidebarOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  activePage: string;
-  setActivePage: React.Dispatch<React.SetStateAction<string>>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -34,18 +34,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [tickets, setTickets] = useState<Ticket[]>(mockTickets);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [activePage, setActivePage] = useState('dashboard');
 
   const currentUser = currentRole === 'admin' ? mockUsers[1] : mockUsers[0];
 
   const switchRole = useCallback(() => {
-    setCurrentRole((prev) => {
-      const next = prev === 'admin' ? 'user' : 'admin';
-      // Switch default page too
-      if (next === 'user') setActivePage('my-requests');
-      else setActivePage('dashboard');
-      return next;
-    });
+    setCurrentRole((prev) => (prev === 'admin' ? 'user' : 'admin'));
   }, []);
 
   const getTicketsByStage = useCallback(
@@ -57,6 +50,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => tickets.filter((t) => t.reportedBy === currentUser.id),
     [tickets, currentUser.id]
   );
+
+  const updateTicketStage = useCallback((id: string, stage: TicketStage) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === id ? { ...t, stage, updatedAt: new Date().toISOString() } : t
+      )
+    );
+  }, []);
+
+  const reviewTicket = useCallback((id: string, isApproved: boolean) => {
+    setTickets((prev) =>
+      prev.map((t) =>
+        t.id === id
+          ? {
+              ...t,
+              stage: isApproved ? 'done' : 'doing',
+              updatedAt: new Date().toISOString(),
+            }
+          : t
+      )
+    );
+  }, []);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -80,14 +95,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         setTickets,
         getTicketsByStage,
         getUserTickets,
+        updateTicketStage,
+        reviewTicket,
         notifications,
         unreadCount,
         markNotificationRead,
         markAllRead,
         sidebarOpen,
         setSidebarOpen,
-        activePage,
-        setActivePage,
       }}
     >
       {children}

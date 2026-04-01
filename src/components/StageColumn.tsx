@@ -1,3 +1,4 @@
+import { Droppable } from '@hello-pangea/dnd';
 import type { TicketStage, Ticket } from '../types';
 import { stageConfig } from '../data/mockData';
 import TicketCard from './TicketCard';
@@ -24,10 +25,10 @@ export default function StageColumn({ stageKey, tickets }: StageColumnProps) {
   const stage = stageConfig.find((s) => s.key === stageKey)!;
 
   return (
-    <div className="flex flex-col h-full bg-cream-50/50 rounded-2xl border border-brown-100/40 overflow-hidden">
-      {/* Column Header - This is the drag handle */}
+    <div className="flex flex-col h-full bg-cream-50/50 rounded-2xl border border-brown-100/40 overflow-hidden shadow-sm">
+      {/* Column Header */}
       <div
-        className={`drag-handle flex items-center gap-2.5 px-4 py-3 border-b ${stage.borderColor} ${stage.bgColor} cursor-grab active:cursor-grabbing select-none`}
+        className={`flex items-center gap-2.5 px-4 py-3 border-b ${stage.borderColor} ${stage.bgColor}`}
       >
         <span className={`${stage.color}`}>{iconMap[stage.icon]}</span>
         <div className="flex-1 min-w-0">
@@ -42,18 +43,28 @@ export default function StageColumn({ stageKey, tickets }: StageColumnProps) {
       </div>
 
       {/* Card List */}
-      <div className="stage-scroll flex-1 p-2.5 space-y-2.5">
-        {tickets.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-brown-300">
-            {iconMap[stage.icon]}
-            <p className="text-xs mt-2 italic">ไม่มีรายการ</p>
+      <Droppable droppableId={stageKey}>
+        {(provided, snapshot) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            className={`flex-1 p-2.5 space-y-2.5 overflow-y-auto ${snapshot.isDraggingOver ? 'bg-brown-100/30' : ''}`}
+          >
+            {tickets.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-brown-300 pointer-events-none">
+                {iconMap[stage.icon]}
+                <p className="text-xs mt-2 italic">ไม่มีรายการ</p>
+              </div>
+            ) : (
+              tickets.map((ticket, idx) => (
+                <TicketCard key={ticket.id} ticket={ticket} index={idx} />
+              ))
+            )}
+            {provided.placeholder}
           </div>
-        ) : (
-          tickets.map((ticket, idx) => (
-            <TicketCard key={ticket.id} ticket={ticket} index={idx} />
-          ))
         )}
-      </div>
+      </Droppable>
     </div>
   );
 }
+

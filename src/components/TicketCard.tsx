@@ -1,3 +1,5 @@
+import { Draggable } from '@hello-pangea/dnd';
+import { useApp } from '../context/AppContext';
 import type { Ticket, Priority } from '../types';
 import {
   AlertTriangle,
@@ -6,11 +8,13 @@ import {
   ArrowDown,
   User,
   Clock,
+  CheckCircle,
+  XCircle,
 } from 'lucide-react';
 
 interface TicketCardProps {
   ticket: Ticket;
-  index: number;
+  index?: number;
 }
 
 const priorityConfig: Record<
@@ -49,12 +53,15 @@ const priorityConfig: Record<
 
 export default function TicketCard({ ticket, index }: TicketCardProps) {
   const pConfig = priorityConfig[ticket.priority];
+  const { currentRole, reviewTicket } = useApp();
 
-  return (
+  const isReviewStage = ticket.stage === 'review' && currentRole === 'user';
+
+  const cardContent = (
     <div
       className="animate-fade-in-up bg-white rounded-xl border border-brown-100/60 p-3.5 hover:shadow-lg hover:shadow-brown-200/30 hover:border-brown-200/80
-        transition-all duration-300 cursor-pointer group"
-      style={{ animationDelay: `${index * 60}ms` }}
+        transition-all duration-300 cursor-pointer group h-full flex flex-col"
+      style={{ animationDelay: `${(index ?? 0) * 60}ms` }}
     >
       {/* Top row: Code + Priority */}
       <div className="flex items-center justify-between mb-2">
@@ -75,45 +82,97 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
       </h4>
 
       {/* Description */}
-      <p className="text-xs text-brown-500 leading-relaxed mb-3 line-clamp-2">
+      <p className="text-xs text-brown-500 leading-relaxed mb-3 line-clamp-2 flex-1">
         {ticket.description}
       </p>
 
       {/* Footer */}
-      <div className="flex items-center justify-between pt-2 border-t border-cream-200/80">
-        {/* Department */}
-        <span className="text-[10px] text-brown-400 font-medium truncate max-w-[45%]">
-          {ticket.department.split(' (')[0]}
-        </span>
+      <div className="flex flex-col gap-2 pt-2 border-t border-cream-200/80 mt-auto">
+        <div className="flex items-center justify-between">
+          {/* Department */}
+          <span className="text-[10px] text-brown-400 font-medium truncate max-w-[45%]">
+            {ticket.department.split(' (')[0]}
+          </span>
 
-        <div className="flex items-center gap-2">
-          {/* Assigned Tech */}
-          {ticket.assignedToName ? (
-            <span className="inline-flex items-center gap-1 text-[10px] text-brown-600 font-medium">
-              <User className="w-3 h-3 text-brown-400" />
-              {ticket.assignedToName}
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] text-brown-400 italic">
-              <User className="w-3 h-3" />
-              ยังไม่มอบหมาย
-            </span>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Assigned Tech */}
+            {ticket.assignedToName ? (
+              <span className="inline-flex items-center gap-1 text-[10px] text-brown-600 font-medium">
+                <User className="w-3 h-3 text-brown-400" />
+                {ticket.assignedToName}
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 text-[10px] text-brown-400 italic">
+                <User className="w-3 h-3" />
+                ยังไม่มอบหมาย
+              </span>
+            )}
+          </div>
         </div>
-      </div>
 
-      {/* Timestamp */}
-      <div className="flex items-center gap-1 mt-1.5">
-        <Clock className="w-3 h-3 text-brown-300" />
-        <span className="text-[10px] text-brown-400">
-          {new Date(ticket.updatedAt).toLocaleString('th-TH', {
-            day: 'numeric',
-            month: 'short',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
-        </span>
+        {/* Timestamp */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1">
+            <Clock className="w-3 h-3 text-brown-300" />
+            <span className="text-[10px] text-brown-400">
+              {new Date(ticket.updatedAt).toLocaleString('th-TH', {
+                day: 'numeric',
+                month: 'short',
+                hour: '2-digit',
+                minute: '2-digit',
+              })}
+            </span>
+          </div>
+        </div>
+
+        {/* User Review Action Buttons */}
+        {isReviewStage && (
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-dashed border-brown-100">
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                reviewTicket(ticket.id, true);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 rounded-lg text-xs font-semibold transition-colors"
+            >
+              <CheckCircle className="w-3.5 h-3.5" />
+              ทำงานเสร็จแล้ว
+            </button>
+            <button
+              onClick={(e) => {
+                e.preventDefault();
+                reviewTicket(ticket.id, false);
+              }}
+              className="flex-1 flex items-center justify-center gap-1.5 px-2 py-1.5 bg-red-50 text-red-700 hover:bg-red-100 rounded-lg text-xs font-semibold transition-colors"
+            >
+              <XCircle className="w-3.5 h-3.5" />
+              ส่งกลับแก้ไข
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
+
+  // If index is undefined (e.g. Stage Summary Page), don't wrap in Draggable
+  if (index === undefined) {
+    return cardContent;
+  }
+
+  return (
+    <Draggable draggableId={ticket.id} index={index}>
+      {(provided, snapshot) => (
+        <div
+          ref={provided.innerRef}
+          {...provided.draggableProps}
+          {...provided.dragHandleProps}
+          style={{ ...provided.draggableProps.style }}
+          className={`${snapshot.isDragging ? 'shadow-2xl scale-105 z-50' : ''}`}
+        >
+          {cardContent}
+        </div>
+      )}
+    </Draggable>
+  );
 }
+

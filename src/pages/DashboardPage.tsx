@@ -82,7 +82,7 @@ export default function DashboardPage() {
       {/* Kanban Board */}
       <div className="mb-4">
         <h3 className="text-lg font-semibold text-brown-800 mb-1">Kanban Board</h3>
-        <p className="text-xs text-brown-400 mb-4">ลากเพื่อสลับตำแหน่งคอลัมน์ • คลิกมุมขวาล่างเพื่อปรับขนาด</p>
+        <p className="text-xs text-brown-400 mb-4">ลากการ์ดเพื่อย้ายสถานะข้ามคอลัมน์ (เฉพาะ Admin)</p>
       </div>
       <KanbanBoard />
     </div>

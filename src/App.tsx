@@ -1,3 +1,4 @@
+import { Routes, Route, Navigate } from 'react-router-dom';
 import Header from './components/Header';
 import Sidebar from './components/Sidebar';
 import DashboardPage from './pages/DashboardPage';
@@ -7,30 +8,11 @@ import AllRequestsPage from './pages/AllRequestsPage';
 import MyTasksPage from './pages/MyTasksPage';
 import StatisticsPage from './pages/StatisticsPage';
 import SettingsPage from './pages/SettingsPage';
+import StageSummaryPage from './pages/StageSummaryPage';
 import { useApp } from './context/AppContext';
 
-function PageRouter() {
-  const { activePage } = useApp();
-
-  const pages: Record<string, React.ReactNode> = {
-    'dashboard': <DashboardPage />,
-    'all-requests': <AllRequestsPage />,
-    'my-tasks': <MyTasksPage />,
-    'statistics': <StatisticsPage />,
-    'my-requests': <MyRequestsPage />,
-    'new-request': <NewRequestPage />,
-    'settings': <SettingsPage />,
-  };
-
-  return (
-    <div className="animate-fade-in-up" key={activePage}>
-      {pages[activePage] || <DashboardPage />}
-    </div>
-  );
-}
-
 export default function App() {
-  const { sidebarOpen } = useApp();
+  const { sidebarOpen, currentRole } = useApp();
 
   return (
     <div className="min-h-screen bg-cream-50">
@@ -44,9 +26,21 @@ export default function App() {
         }`}
       >
         <div className="p-4 lg:p-6 xl:p-8">
-          <PageRouter />
+          <Routes>
+            <Route path="/" element={currentRole === 'admin' ? <DashboardPage /> : <Navigate to="/my-requests" />} />
+            <Route path="/requests" element={<AllRequestsPage />} />
+            <Route path="/tasks" element={<MyTasksPage />} />
+            <Route path="/stats" element={<StatisticsPage />} />
+            <Route path="/my-requests" element={<MyRequestsPage />} />
+            <Route path="/new-request" element={<NewRequestPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/stage/:statusId" element={<StageSummaryPage />} />
+            {/* Fallback */}
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
         </div>
       </main>
     </div>
   );
 }
+
