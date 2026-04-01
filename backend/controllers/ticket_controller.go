@@ -27,7 +27,28 @@ func NewTicketController(db *gorm.DB) *TicketController {
 func (tc *TicketController) GetTickets(c *gin.Context) {
 	var tickets []models.Ticket
 
+	userIDStr := c.Query("user_id")
+	var userID uint
+	var user models.User
+
+	if userIDStr != "" {
+		if id, err := strconv.ParseUint(userIDStr, 10, 64); err == nil {
+			userID = uint(id)
+			if err := tc.DB.Preload("Department").First(&user, userID).Error; err != nil {
+				c.JSON(http.StatusUnauthorized, gin.H{"error": "user not found"})
+				return
+			}
+		}
+	}
+
 	query := tc.DB.Preload("Requester").Preload("Assignee").Order("created_at desc")
+
+	if userID > 0 && user.Role == models.RoleUser {
+		query = query.Where(
+			"(requester_id = ? OR assignee_id = ? OR requester_id IN (SELECT id FROM users WHERE department_id = ?))",
+			userID, userID, user.DepartmentID,
+		)
+	}
 
 	if keyword := strings.TrimSpace(c.Query("q")); keyword != "" {
 		like := "%" + strings.ToLower(keyword) + "%"

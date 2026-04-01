@@ -7,6 +7,7 @@ import (
 
 	"crs-ticket-system/backend/database"
 	"crs-ticket-system/backend/routes"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"

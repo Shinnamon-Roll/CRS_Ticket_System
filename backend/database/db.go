@@ -46,30 +46,80 @@ func Connect() (*gorm.DB, error) {
 }
 
 func migrateAndSeed(db *gorm.DB) error {
-	if err := db.AutoMigrate(&models.User{}, &models.Ticket{}, &models.ChatMessage{}); err != nil {
+	if err := db.AutoMigrate(
+		&models.Department{},
+		&models.User{},
+		&models.Ticket{},
+		&models.ChatMessage{},
+	); err != nil {
 		return fmt.Errorf("failed to migrate database: %w", err)
 	}
 
-	if err := seedUsers(db); err != nil {
-		return fmt.Errorf("failed to seed users: %w", err)
+	if err := seedDeparttmentsAndUsers(db); err != nil {
+		return fmt.Errorf("failed to seed departments and users: %w", err)
 	}
 
 	return nil
 }
 
-func seedUsers(db *gorm.DB) error {
+func seedDeparttmentsAndUsers(db *gorm.DB) error {
 	var count int64
-	if err := db.Model(&models.User{}).Count(&count).Error; err != nil {
+	if err := db.Model(&models.Department{}).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
 		return nil
 	}
 
+	departments := []models.Department{
+		{Name: "IT Support"},
+		{Name: "Accounting"},
+		{Name: "Front Office"},
+		{Name: "IT Network"},
+	}
+
+	if err := db.Create(&departments).Error; err != nil {
+		return err
+	}
+
+	hashPassword := func(pwd string) string {
+		return pwd
+	}
+
+	var depts []models.Department
+	if err := db.Find(&depts).Error; err != nil {
+		return err
+	}
+
 	users := []models.User{
-		{Name: "IT Admin", Role: models.RoleAdmin, Department: "IT"},
-		{Name: "Finance User", Role: models.RoleUser, Department: "Finance"},
-		{Name: "HR User", Role: models.RoleUser, Department: "HR"},
+		{
+			Name:         "System Admin",
+			Email:        "admin@crs.local",
+			PasswordHash: hashPassword("admin123"),
+			Role:         models.RoleAdmin,
+			DepartmentID: depts[0].ID,
+		},
+		{
+			Name:         "IT Support Staff",
+			Email:        "it@crs.local",
+			PasswordHash: hashPassword("it123"),
+			Role:         models.RoleUser,
+			DepartmentID: depts[0].ID,
+		},
+		{
+			Name:         "Accounting Staff",
+			Email:        "accounting@crs.local",
+			PasswordHash: hashPassword("accounting123"),
+			Role:         models.RoleUser,
+			DepartmentID: depts[1].ID,
+		},
+		{
+			Name:         "Front Office Staff",
+			Email:        "frontoffice@crs.local",
+			PasswordHash: hashPassword("frontoffice123"),
+			Role:         models.RoleUser,
+			DepartmentID: depts[2].ID,
+		},
 	}
 
 	return db.Create(&users).Error

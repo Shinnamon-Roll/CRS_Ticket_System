@@ -6,12 +6,18 @@ export type TicketStage = 'request' | 'doing' | 'review' | 'done';
 
 export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 
+export interface Department {
+  id: string;
+  name: string;
+}
+
 export interface User {
   id: string;
   name: string;
   nameEn: string;
   role: Role;
   department: string;
+  departmentId?: string;
   avatar?: string;
 }
 

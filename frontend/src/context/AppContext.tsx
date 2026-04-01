@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
-import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessage } from '../types';
+import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessage, Department } from '../types';
 import { mockNotifications } from '../data/mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
@@ -9,7 +9,12 @@ interface BackendUser {
   id: number;
   name: string;
   role: Role;
-  department: string;
+  email: string;
+  department_id: number;
+  department: {
+    id: number;
+    name: string;
+  };
 }
 
 interface BackendTicket {
@@ -58,6 +63,7 @@ interface AppContextType {
   currentRole: Role;
   currentUser: User;
   users: User[];
+  departments: Department[];
   switchRole: () => void;
 
   // Tickets
@@ -94,6 +100,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 export function AppProvider({ children }: { children: ReactNode }) {
   const [currentRole, setCurrentRole] = useState<Role>('admin');
   const [users, setUsers] = useState<User[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -113,12 +120,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const mapUser = useCallback((user: BackendUser): User => {
     const initial = user.name.trim().charAt(0).toUpperCase() || 'U';
+    const deptName = user.department?.name || '-';
     return {
       id: String(user.id),
       name: user.name,
       nameEn: initial,
       role: user.role,
-      department: user.department,
+      department: deptName,
+      departmentId: String(user.department_id),
     };
   }, []);
 
@@ -130,6 +139,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? ticket.image_url
         : `${API_BASE_URL}${ticket.image_url}`
       : undefined;
+    const deptName = typeof ticket.requester?.department === 'object' 
+      ? ticket.requester.department.name 
+      : (ticket.requester?.department as any) || '-';
 
     return {
       id: String(ticket.id),
@@ -141,7 +153,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ownerName,
       imageUrl,
       createdOn: ticket.created_at,
-      department: ticket.requester?.department || '-',
+      department: deptName,
       reportedBy: String(ticket.requester_id),
       reportedByName: requestorName,
       assignedTo: ticket.assignee_id ? String(ticket.assignee_id) : undefined,
@@ -179,27 +191,39 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUsers(data.map(mapUser));
   }, [mapUser]);
 
+  const refreshDepartments = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/admin/departments`);
+      if (res.ok) {
+        const data: Array<{ id: number; name: string }> = await res.json();
+        setDepartments(data.map(d => ({ id: String(d.id), name: d.name })));
+      }
+    } catch (error) {
+      console.error('failed to fetch departments');
+    }
+  }, []);
+
   const refreshTickets = useCallback(
     async (search = '') => {
-      const query = search.trim() ? `?q=${encodeURIComponent(search.trim())}` : '';
+      const query = search.trim() ? `?q=${encodeURIComponent(search.trim())}&user_id=${encodeURIComponent(currentUser.id)}` : `?user_id=${encodeURIComponent(currentUser.id)}`;
       const res = await fetch(`${API_BASE_URL}/api/tickets${query}`);
       if (!res.ok) throw new Error('failed to fetch tickets');
       const data: BackendTicket[] = await res.json();
       setTickets(data.map(mapTicket));
     },
-    [mapTicket]
+    [mapTicket, currentUser.id]
   );
 
   useEffect(() => {
     const bootstrap = async () => {
       try {
-        await Promise.all([refreshUsers(), refreshTickets()]);
+        await Promise.all([refreshUsers(), refreshTickets(), refreshDepartments()]);
       } catch (error) {
         console.error(error);
       }
     };
     void bootstrap();
-  }, [refreshUsers, refreshTickets]);
+  }, [refreshUsers, refreshTickets, refreshDepartments]);
 
   const switchRole = useCallback(() => {
     setCurrentRole((prev) => (prev === 'admin' ? 'user' : 'admin'));
@@ -420,6 +444,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
         currentRole,
         currentUser,
         users,
+        departments,
         switchRole,
         tickets,
         refreshTickets,

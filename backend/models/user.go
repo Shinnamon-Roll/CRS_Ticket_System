@@ -10,10 +10,13 @@ const (
 )
 
 type User struct {
-	ID         uint      `json:"id" gorm:"primaryKey"`
-	Name       string    `json:"name" gorm:"size:120;not null"`
-	Role       UserRole  `json:"role" gorm:"type:varchar(20);not null;default:user"`
-	Department string    `json:"department" gorm:"size:120;not null"`
-	CreatedAt  time.Time `json:"created_at"`
-	UpdatedAt  time.Time `json:"updated_at"`
+	ID           uint       `json:"id" gorm:"primaryKey"`
+	Name         string     `json:"name" gorm:"size:120;not null"`
+	Email        string     `json:"email" gorm:"size:255;not null;uniqueIndex"`
+	PasswordHash string     `json:"-" gorm:"size:255;not null"`
+	Role         UserRole   `json:"role" gorm:"type:varchar(20);not null;default:user"`
+	DepartmentID uint       `json:"department_id" gorm:"not null;index"`
+	Department   Department `json:"department" gorm:"foreignKey:DepartmentID"`
+	CreatedAt    time.Time  `json:"created_at"`
+	UpdatedAt    time.Time  `json:"updated_at"`
 }
