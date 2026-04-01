@@ -20,6 +20,11 @@ export interface Ticket {
   code: string;
   title: string;
   description: string;
+  location?: string;
+  requestorName?: string;
+  ownerName?: string;
+  imageUrl?: string;
+  createdOn?: string;
   department: string;
   reportedBy: string;       // User id
   reportedByName: string;
@@ -29,7 +34,7 @@ export interface Ticket {
   stage: TicketStage;
   createdAt: string;
   updatedAt: string;
-  category: string;
+  category?: string;
 }
 
 export interface Notification {

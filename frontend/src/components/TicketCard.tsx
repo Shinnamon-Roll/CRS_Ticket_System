@@ -53,9 +53,10 @@ const priorityConfig: Record<
 
 export default function TicketCard({ ticket, index }: TicketCardProps) {
   const pConfig = priorityConfig[ticket.priority];
-  const { currentRole, reviewTicket } = useApp();
+  const { currentRole, currentUser, reviewTicket, assignTicket } = useApp();
 
   const isReviewStage = ticket.stage === 'review' && currentRole === 'user';
+  const canAcceptTask = currentRole === 'admin' && !ticket.assignedTo;
 
   const cardContent = (
     <div
@@ -86,6 +87,24 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
         {ticket.description}
       </p>
 
+      {ticket.imageUrl && (
+        <img
+          src={ticket.imageUrl}
+          alt={ticket.title}
+          className="w-full h-28 object-cover rounded-lg border border-brown-100 mb-3"
+          loading="lazy"
+        />
+      )}
+
+      <div className="grid grid-cols-1 gap-1.5 mb-3 text-[11px]">
+        <p className="text-brown-500">
+          <span className="font-semibold text-brown-700">Requestor:</span> {ticket.requestorName || ticket.reportedByName || '-'}
+        </p>
+        <p className="text-brown-500 line-clamp-1">
+          <span className="font-semibold text-brown-700">Location:</span> {ticket.location || '-'}
+        </p>
+      </div>
+
       {/* Footer */}
       <div className="flex flex-col gap-2 pt-2 border-t border-cream-200/80 mt-auto">
         <div className="flex items-center justify-between">
@@ -99,7 +118,7 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
             {ticket.assignedToName ? (
               <span className="inline-flex items-center gap-1 text-[10px] text-brown-600 font-medium">
                 <User className="w-3 h-3 text-brown-400" />
-                {ticket.assignedToName}
+                {ticket.ownerName || ticket.assignedToName}
               </span>
             ) : (
               <span className="inline-flex items-center gap-1 text-[10px] text-brown-400 italic">
@@ -115,7 +134,7 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
           <div className="flex items-center gap-1">
             <Clock className="w-3 h-3 text-brown-300" />
             <span className="text-[10px] text-brown-400">
-              {new Date(ticket.updatedAt).toLocaleString('th-TH', {
+              {new Date(ticket.createdOn || ticket.createdAt).toLocaleString('th-TH', {
                 day: 'numeric',
                 month: 'short',
                 hour: '2-digit',
@@ -149,6 +168,18 @@ export default function TicketCard({ ticket, index }: TicketCardProps) {
               ส่งกลับแก้ไข
             </button>
           </div>
+        )}
+
+        {canAcceptTask && (
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              assignTicket(ticket.id, currentUser.id);
+            }}
+            className="mt-2 w-full px-2 py-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 rounded-lg text-xs font-semibold transition-colors"
+          >
+            รับงานนี้เป็น Owner
+          </button>
         )}
       </div>
     </div>

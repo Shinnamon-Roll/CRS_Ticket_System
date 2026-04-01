@@ -20,18 +20,19 @@ export default function StatisticsPage() {
       { key: 'low', label: 'ต่ำ', count: tickets.filter((t) => t.priority === 'low').length, color: 'bg-green-500' },
     ];
 
-    const byCategory = tickets.reduce<Record<string, number>>((acc, t) => {
-      acc[t.category] = (acc[t.category] || 0) + 1;
+    const byLocation = tickets.reduce<Record<string, number>>((acc, t) => {
+      const key = t.location || 'ไม่ระบุสถานที่';
+      acc[key] = (acc[key] || 0) + 1;
       return acc;
     }, {});
 
-    const sortedCategories = Object.entries(byCategory)
+    const sortedLocations = Object.entries(byLocation)
       .sort(([, a], [, b]) => b - a);
 
-    return { byStage, byPriority, sortedCategories };
+    return { byStage, byPriority, sortedLocations };
   }, [tickets]);
 
-  const maxCategoryCount = Math.max(...stats.sortedCategories.map(([, c]) => c), 1);
+  const maxLocationCount = Math.max(...stats.sortedLocations.map(([, c]) => c), 1);
 
   return (
     <div>
@@ -90,20 +91,20 @@ export default function StatisticsPage() {
           </div>
         </div>
 
-        {/* By Category */}
+        {/* By Location */}
         <div className="bg-white rounded-2xl border border-brown-100/60 p-5 shadow-sm lg:col-span-2">
           <h3 className="text-sm font-bold text-brown-700 mb-4 flex items-center gap-2">
             <BarChart3 className="w-4 h-4 text-brown-400" />
-            ตามหมวดหมู่งาน
+            ตามสถานที่ (Location)
           </h3>
           <div className="space-y-2">
-            {stats.sortedCategories.map(([category, count]) => (
-              <div key={category} className="flex items-center gap-3">
-                <span className="text-xs font-medium w-40 text-brown-600 truncate">{category}</span>
+            {stats.sortedLocations.map(([location, count]) => (
+              <div key={location} className="flex items-center gap-3">
+                <span className="text-xs font-medium w-40 text-brown-600 truncate">{location}</span>
                 <div className="flex-1 h-5 bg-cream-100 rounded-lg overflow-hidden">
                   <div
                     className="h-full bg-gradient-to-r from-gold-400 to-brown-400 rounded-lg transition-all duration-700 flex items-center px-2"
-                    style={{ width: `${(count / maxCategoryCount) * 100}%`, minWidth: '1.5rem' }}
+                    style={{ width: `${(count / maxLocationCount) * 100}%`, minWidth: '1.5rem' }}
                   >
                     <span className="text-[10px] font-bold text-white">{count}</span>
                   </div>

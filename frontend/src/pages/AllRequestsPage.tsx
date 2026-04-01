@@ -14,8 +14,12 @@ export default function AllRequestsPage() {
       (t) =>
         t.code.toLowerCase().includes(q) ||
         t.title.toLowerCase().includes(q) ||
+        t.description.toLowerCase().includes(q) ||
+        (t.location || '').toLowerCase().includes(q) ||
+        (t.requestorName || '').toLowerCase().includes(q) ||
+        (t.ownerName || '').toLowerCase().includes(q) ||
         t.department.toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q)
+        (t.category || '').toLowerCase().includes(q)
     );
   }, [tickets, searchTerm]);
 

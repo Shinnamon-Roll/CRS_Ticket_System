@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import type { Ticket, Priority } from '../types';
+import type { Priority } from '../types';
 import { PlusCircle, Send, CheckCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const categories = [
   'ระบบปรับอากาศ',
@@ -17,37 +18,44 @@ const categories = [
 ];
 
 export default function NewRequestPage() {
-  const { currentUser, tickets, setTickets, setActivePage } = useApp();
+  const { currentUser, createTicket } = useApp();
+  const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
+  const [submitError, setSubmitError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
   const [form, setForm] = useState({
     title: '',
     description: '',
+    location: '',
     category: categories[0],
     priority: 'medium' as Priority,
+    image: null as File | null,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newTicket: Ticket = {
-      id: `t${Date.now()}`,
-      code: `CRS-2026-${String(tickets.length + 1).padStart(3, '0')}`,
-      title: form.title,
-      description: form.description,
-      department: currentUser.department,
-      reportedBy: currentUser.id,
-      reportedByName: `${currentUser.name.split(' ')[0]} ${currentUser.name.split(' ')[1]?.charAt(0) || ''}.`,
-      priority: form.priority,
-      stage: 'request',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      category: form.category,
-    };
-    setTickets((prev) => [newTicket, ...prev]);
-    setSubmitted(true);
-    setTimeout(() => {
-      setSubmitted(false);
-      setActivePage('my-requests');
-    }, 2000);
+    setSubmitError('');
+    setSubmitting(true);
+
+    try {
+      await createTicket({
+        title: `${form.category}: ${form.title}`,
+        description: form.description,
+        location: form.location,
+        priority: form.priority,
+        requesterId: currentUser.id,
+        image: form.image,
+      });
+      setSubmitted(true);
+      setTimeout(() => {
+        setSubmitted(false);
+        navigate('/my-requests');
+      }, 1500);
+    } catch (error) {
+      setSubmitError(error instanceof Error ? error.message : 'ไม่สามารถส่ง Request ได้');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   if (submitted) {
@@ -70,7 +78,7 @@ export default function NewRequestPage() {
           ส่ง Request ใหม่
         </h2>
         <p className="text-sm text-brown-500 mt-1">
-          กรอกรายละเอียดปัญหาที่ต้องการแจ้งซ่อม
+          กรอกรายละเอียดปัญหา ระบบจะสร้าง Ticket ID ให้อัตโนมัติสำหรับค้นหา
         </p>
       </div>
 
@@ -81,7 +89,7 @@ export default function NewRequestPage() {
         {/* Title */}
         <div>
           <label htmlFor="req-title" className="block text-sm font-semibold text-brown-700 mb-1.5">
-            หัวข้อปัญหา <span className="text-red-500">*</span>
+            รายละเอียดคำขอ (Top Down) <span className="text-red-500">*</span>
           </label>
           <input
             id="req-title"
@@ -89,7 +97,24 @@ export default function NewRequestPage() {
             required
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            placeholder="เช่น เครื่องปรับอากาศห้อง 305 ไม่เย็น"
+            placeholder="เช่น เครื่องปรับอากาศชั้น 2 โซน A ไม่เย็น"
+            className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-800 placeholder-brown-300
+              focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition"
+          />
+        </div>
+
+        {/* Location */}
+        <div>
+          <label htmlFor="req-location" className="block text-sm font-semibold text-brown-700 mb-1.5">
+            สถานที่ (Location) <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="req-location"
+            type="text"
+            required
+            value={form.location}
+            onChange={(e) => setForm({ ...form, location: e.target.value })}
+            placeholder="เช่น ตึก A ชั้น 2 ห้อง 205"
             className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-800 placeholder-brown-300
               focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition"
           />
@@ -152,22 +177,44 @@ export default function NewRequestPage() {
           />
         </div>
 
+        {/* Image */}
+        <div>
+          <label htmlFor="req-image" className="block text-sm font-semibold text-brown-700 mb-1.5">
+            รูปภาพประกอบ (ไม่บังคับ)
+          </label>
+          <input
+            id="req-image"
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(e) => setForm({ ...form, image: e.target.files?.[0] || null })}
+            className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-700
+              file:mr-3 file:rounded-lg file:border-0 file:bg-cream-200 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brown-700"
+          />
+        </div>
+
         {/* Department (auto) */}
         <div className="flex items-center gap-2 px-4 py-3 bg-cream-100 rounded-xl">
-          <span className="text-xs text-brown-500">แผนกที่แจ้ง:</span>
+          <span className="text-xs text-brown-500">ผู้แจ้ง / แผนก:</span>
+          <span className="text-xs font-semibold text-brown-700">{currentUser.name}</span>
+          <span className="text-xs text-brown-400">-</span>
           <span className="text-xs font-semibold text-brown-700">{currentUser.department}</span>
         </div>
+
+        {submitError && (
+          <p className="text-sm text-red-600">{submitError}</p>
+        )}
 
         {/* Submit */}
         <button
           type="submit"
+          disabled={submitting}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-xl
             bg-gradient-to-r from-brown-600 to-brown-700 hover:from-brown-700 hover:to-brown-800
             text-cream-100 font-semibold text-sm shadow-lg shadow-brown-700/20
-            transition-all duration-300 hover:shadow-xl hover:shadow-brown-700/30 active:scale-[0.98]"
+            transition-all duration-300 hover:shadow-xl hover:shadow-brown-700/30 active:scale-[0.98] disabled:opacity-70"
         >
           <Send className="w-4 h-4" />
-          ส่ง Request
+          {submitting ? 'กำลังส่ง...' : 'ส่ง Request'}
         </button>
       </form>
     </div>
