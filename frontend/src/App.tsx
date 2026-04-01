@@ -10,10 +10,15 @@ import StatisticsPage from './pages/StatisticsPage';
 import SettingsPage from './pages/SettingsPage';
 import StageSummaryPage from './pages/StageSummaryPage';
 import TicketChatWidget from './components/TicketChatWidget';
+import LoginPage from './pages/LoginPage';
 import { useApp } from './context/AppContext';
 
 export default function App() {
-  const { sidebarOpen, currentRole } = useApp();
+  const { sidebarOpen, currentRole, isAuthenticated } = useApp();
+
+  if (!isAuthenticated) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="min-h-screen bg-cream-50">

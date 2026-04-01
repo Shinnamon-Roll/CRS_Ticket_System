@@ -2,7 +2,7 @@ import { useApp } from '../context/AppContext';
 import {
   Bell,
   Menu,
-  ArrowRightLeft,
+  LogOut,
   Shield,
   User as UserIcon,
 } from 'lucide-react';
@@ -12,7 +12,7 @@ export default function Header() {
   const {
     currentUser,
     currentRole,
-    switchRole,
+    logout,
     notifications,
     unreadCount,
     markNotificationRead,
@@ -63,17 +63,17 @@ export default function Header() {
 
       {/* Right side */}
       <div className="flex items-center gap-2">
-        {/* Role Switcher */}
+        {/* Logout */}
         <button
-          id="role-switcher"
-          onClick={switchRole}
+          id="logout-button"
+          onClick={logout}
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium
             bg-gradient-to-r from-cream-200 to-cream-300 hover:from-cream-300 hover:to-cream-400
             text-brown-700 transition-all duration-300 group border border-brown-200/30"
-          title="สลับบทบาท (Switch Role)"
+          title="ออกจากระบบ"
         >
-          <ArrowRightLeft className="w-3.5 h-3.5 transition-transform group-hover:rotate-180 duration-500" />
-          <span className="hidden sm:inline">สลับ</span>
+          <LogOut className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">ออกจากระบบ</span>
         </button>
 
         {/* Notifications */}

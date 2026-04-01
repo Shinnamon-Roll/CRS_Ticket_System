@@ -130,8 +130,9 @@ func (ac *AdminController) CreateUser(c *gin.Context) {
 		Name:         strings.TrimSpace(payload.Name),
 		Email:        strings.TrimSpace(payload.Email),
 		PasswordHash: payload.Password,
+		LegacyDept:   dept.Name,
 		Role:         role,
-		DepartmentID: payload.DepartmentID,
+		DepartmentID: &payload.DepartmentID,
 	}
 
 	if err := ac.DB.Create(&user).Error; err != nil {
@@ -174,7 +175,13 @@ func (ac *AdminController) UpdateUser(c *gin.Context) {
 		updates["email"] = strings.TrimSpace(payload.Email)
 	}
 	if payload.DepartmentID > 0 {
+		var dept models.Department
+		if err := ac.DB.First(&dept, payload.DepartmentID).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "department not found"})
+			return
+		}
 		updates["department_id"] = payload.DepartmentID
+		updates["department"] = dept.Name
 	}
 	if payload.Role != "" {
 		updates["role"] = models.UserRole(strings.ToLower(payload.Role))

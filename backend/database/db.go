@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	"crs-ticket-system/backend/models"
 
@@ -38,7 +39,25 @@ func Connect() (*gorm.DB, error) {
 	}
 
 	if err := migrateAndSeed(db); err != nil {
-		return nil, err
+		// Existing SQLite files from older schema may fail with NOT NULL add-column errors.
+		if strings.Contains(err.Error(), "Cannot add a NOT NULL column") {
+			log.Printf("warning: sqlite migration incompatible with old schema, recreating database file: %v", err)
+			sqlDB, _ := db.DB()
+			if sqlDB != nil {
+				_ = sqlDB.Close()
+			}
+			_ = os.Remove(sqlitePath)
+
+			db, err = gorm.Open(sqlite.Open(sqlitePath), &gorm.Config{})
+			if err != nil {
+				return nil, fmt.Errorf("failed to recreate SQLite fallback database: %w", err)
+			}
+			if err := migrateAndSeed(db); err != nil {
+				return nil, err
+			}
+		} else {
+			return nil, err
+		}
 	}
 
 	log.Printf("info: using SQLite fallback database at %s", sqlitePath)
@@ -63,64 +82,55 @@ func migrateAndSeed(db *gorm.DB) error {
 }
 
 func seedDeparttmentsAndUsers(db *gorm.DB) error {
-	var count int64
-	if err := db.Model(&models.Department{}).Count(&count).Error; err != nil {
-		return err
-	}
-	if count > 0 {
-		return nil
-	}
-
-	departments := []models.Department{
-		{Name: "IT Support"},
-		{Name: "Accounting"},
-		{Name: "Front Office"},
-		{Name: "IT Network"},
-	}
-
-	if err := db.Create(&departments).Error; err != nil {
-		return err
+	departmentNames := []string{"IT Support", "Accounting", "Front Office", "IT Network"}
+	for _, name := range departmentNames {
+		var dept models.Department
+		if err := db.Where("name = ?", name).First(&dept).Error; err != nil {
+			if err == gorm.ErrRecordNotFound {
+				if err := db.Create(&models.Department{Name: name}).Error; err != nil {
+					return err
+				}
+				continue
+			}
+			return err
+		}
 	}
 
-	hashPassword := func(pwd string) string {
-		return pwd
-	}
-
-	var depts []models.Department
-	if err := db.Find(&depts).Error; err != nil {
+	var adminDept models.Department
+	if err := db.Where("name = ?", "IT Support").First(&adminDept).Error; err != nil {
 		return err
 	}
 
-	users := []models.User{
-		{
+	// Admin login required by user: email=admin password=admin.
+	var admin models.User
+	err := db.Where("email = ?", "admin").First(&admin).Error
+	if err == gorm.ErrRecordNotFound {
+		adminDeptID := adminDept.ID
+		admin = models.User{
 			Name:         "System Admin",
-			Email:        "admin@crs.local",
-			PasswordHash: hashPassword("admin123"),
+			Email:        "admin",
+			PasswordHash: "admin",
+			LegacyDept:   adminDept.Name,
 			Role:         models.RoleAdmin,
-			DepartmentID: depts[0].ID,
-		},
-		{
-			Name:         "IT Support Staff",
-			Email:        "it@crs.local",
-			PasswordHash: hashPassword("it123"),
-			Role:         models.RoleUser,
-			DepartmentID: depts[0].ID,
-		},
-		{
-			Name:         "Accounting Staff",
-			Email:        "accounting@crs.local",
-			PasswordHash: hashPassword("accounting123"),
-			Role:         models.RoleUser,
-			DepartmentID: depts[1].ID,
-		},
-		{
-			Name:         "Front Office Staff",
-			Email:        "frontoffice@crs.local",
-			PasswordHash: hashPassword("frontoffice123"),
-			Role:         models.RoleUser,
-			DepartmentID: depts[2].ID,
-		},
+			DepartmentID: &adminDeptID,
+		}
+		if err := db.Create(&admin).Error; err != nil {
+			return err
+		}
+	} else if err != nil {
+		return err
+	} else {
+		adminDeptID := adminDept.ID
+		updates := map[string]interface{}{
+			"password_hash": "admin",
+			"department":    adminDept.Name,
+			"role":          models.RoleAdmin,
+			"department_id": adminDeptID,
+		}
+		if err := db.Model(&models.User{}).Where("id = ?", admin.ID).Updates(updates).Error; err != nil {
+			return err
+		}
 	}
 
-	return db.Create(&users).Error
+	return nil
 }

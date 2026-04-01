@@ -13,9 +13,12 @@ func RegisterAPIRoutes(router *gin.Engine, db *gorm.DB) {
 	chatController := controllers.NewChatController(db)
 	adminController := controllers.NewAdminController(db)
 	reportController := controllers.NewReportController(db)
+	authController := controllers.NewAuthController(db)
 
 	api := router.Group("/api")
 	{
+		api.POST("/auth/login", authController.Login)
+
 		// Tickets
 		api.GET("/tickets", ticketController.GetTickets)
 		api.GET("/tickets/:id", ticketController.GetTicketByID)

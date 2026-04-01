@@ -11,10 +11,10 @@ interface BackendUser {
   role: Role;
   email: string;
   department_id: number;
-  department: {
+  department?: {
     id: number;
     name: string;
-  };
+  } | null;
 }
 
 interface BackendTicket {
@@ -59,11 +59,14 @@ interface CreateTicketPayload {
 }
 
 interface AppContextType {
-  // Role switching
+  // Auth
+  isAuthenticated: boolean;
   currentRole: Role;
   currentUser: User;
   users: User[];
   departments: Department[];
+  login: (email: string, password: string) => Promise<void>;
+  logout: () => void;
   switchRole: () => void;
 
   // Tickets
@@ -98,7 +101,8 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [currentRole, setCurrentRole] = useState<Role>('admin');
+  const [currentRole, setCurrentRole] = useState<Role>('user');
+  const [currentUserId, setCurrentUserId] = useState<string | null>(() => localStorage.getItem('crs_user_id'));
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
@@ -109,14 +113,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [loadedChatTickets, setLoadedChatTickets] = useState<Record<string, boolean>>({});
 
   const currentUser =
-    users.find((u) => u.role === currentRole) ||
+    users.find((u) => u.id === currentUserId) ||
     {
       id: '0',
       name: 'Unknown User',
       nameEn: 'U',
-      role: currentRole,
+      role: 'user' as Role,
       department: '-',
     };
+
+  const isAuthenticated = Boolean(currentUserId && currentUserId !== '0');
 
   const mapUser = useCallback((user: BackendUser): User => {
     const initial = user.name.trim().charAt(0).toUpperCase() || 'U';
@@ -139,8 +145,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? ticket.image_url
         : `${API_BASE_URL}${ticket.image_url}`
       : undefined;
-    const deptName = typeof ticket.requester?.department === 'object' 
-      ? ticket.requester.department.name 
+    const deptName = typeof ticket.requester?.department === 'object' && ticket.requester.department
+      ? ticket.requester.department.name
       : (ticket.requester?.department as any) || '-';
 
     return {
@@ -205,6 +211,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshTickets = useCallback(
     async (search = '') => {
+      if (!currentUser.id || currentUser.id === '0') {
+        setTickets([]);
+        return;
+      }
       const query = search.trim() ? `?q=${encodeURIComponent(search.trim())}&user_id=${encodeURIComponent(currentUser.id)}` : `?user_id=${encodeURIComponent(currentUser.id)}`;
       const res = await fetch(`${API_BASE_URL}/api/tickets${query}`);
       if (!res.ok) throw new Error('failed to fetch tickets');
@@ -213,6 +223,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     },
     [mapTicket, currentUser.id]
   );
+
+  useEffect(() => {
+    if (currentUser.id !== '0') {
+      setCurrentRole(currentUser.role);
+    }
+  }, [currentUser.id, currentUser.role]);
 
   useEffect(() => {
     const bootstrap = async () => {
@@ -226,7 +242,34 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [refreshUsers, refreshTickets, refreshDepartments]);
 
   const switchRole = useCallback(() => {
-    setCurrentRole((prev) => (prev === 'admin' ? 'user' : 'admin'));
+    // role switching disabled after introducing real login.
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'login failed' }));
+      throw new Error(err.error || 'login failed');
+    }
+
+    const data: { user: BackendUser } = await res.json();
+    const mapped = mapUser(data.user);
+
+    setCurrentUserId(mapped.id);
+    setCurrentRole(mapped.role);
+    localStorage.setItem('crs_user_id', mapped.id);
+    await Promise.all([refreshUsers(), refreshTickets(), refreshDepartments()]);
+  }, [mapUser, refreshDepartments, refreshTickets, refreshUsers]);
+
+  const logout = useCallback(() => {
+    setCurrentUserId(null);
+    setCurrentRole('user');
+    localStorage.removeItem('crs_user_id');
+    setActiveChatTicketId(null);
   }, []);
 
   const getTicketsByStage = useCallback(
@@ -441,10 +484,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider
       value={{
+        isAuthenticated,
         currentRole,
         currentUser,
         users,
         departments,
+        login,
+        logout,
         switchRole,
         tickets,
         refreshTickets,
