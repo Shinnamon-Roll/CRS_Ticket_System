@@ -193,6 +193,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       imageUrl,
       createdOn: ticket.created_at,
       department: deptName,
+      departmentId: ticket.department_id ? String(ticket.department_id) : undefined,
       reportedBy: String(ticket.requester_id),
       reportedByName: requestorName,
       assignedTo: ticket.assignee_id ? String(ticket.assignee_id) : undefined,

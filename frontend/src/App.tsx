@@ -11,6 +11,7 @@ import StageSummaryPage from './pages/StageSummaryPage';
 import TicketChatWidget from './components/TicketChatWidget';
 import LoginPage from './pages/LoginPage';
 import AdminManagementPage from './pages/AdminManagementPage';
+import AdminSetupPage from './pages/AdminSetupPage';
 import { useApp } from './context/AppContext';
 
 export default function App() {
@@ -37,6 +38,7 @@ export default function App() {
             <Route path="/requests" element={<AllRequestsPage />} />
             <Route path="/stats" element={<StatisticsPage />} />
             <Route path="/admin/management" element={currentRole === 'admin' ? <AdminManagementPage /> : <Navigate to="/" />} />
+            <Route path="/admin/setup" element={currentRole === 'admin' ? <AdminSetupPage /> : <Navigate to="/" />} />
             <Route path="/my-requests" element={<MyRequestsPage />} />
             <Route path="/new-request" element={<NewRequestPage />} />
             <Route path="/settings" element={<SettingsPage />} />

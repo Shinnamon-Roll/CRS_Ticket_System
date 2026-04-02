@@ -32,6 +32,7 @@ export interface Ticket {
   imageUrl?: string;
   createdOn?: string;
   department: string;
+  departmentId?: string;
   reportedBy: string;       // User id
   reportedByName: string;
   assignedTo?: string;      // Admin/technician id

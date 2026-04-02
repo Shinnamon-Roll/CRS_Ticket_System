@@ -8,6 +8,7 @@ import {
   Settings,
   ClipboardList,
   UserCog,
+  Settings2,
   ChevronRight,
   Loader2,
 } from 'lucide-react';
@@ -29,6 +30,7 @@ export default function Sidebar() {
     { path: '/requests', label: language === 'th' ? 'Request ทั้งหมด' : 'All Requests', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
     { path: '/stats', label: language === 'th' ? 'สถิติ' : 'Statistics', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
     { path: '/admin/management', label: language === 'th' ? 'จัดการแผนกและผู้ใช้' : 'Departments & Users', icon: <UserCog className="w-4.5 h-4.5" />, roles: ['admin'] },
+    { path: '/admin/setup', label: language === 'th' ? 'Admin Setup' : 'Admin Setup', icon: <Settings2 className="w-4.5 h-4.5" />, roles: ['admin'] },
     { path: '/my-requests', label: language === 'th' ? 'สรุปงานของฉัน' : 'My Summary', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
     { path: '/new-request', label: language === 'th' ? 'Ticket ของฉัน' : 'My Ticket', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
     { path: '/settings', label: language === 'th' ? 'ตั้งค่า' : 'Settings', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },

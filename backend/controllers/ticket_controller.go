@@ -244,7 +244,7 @@ func (tc *TicketController) UpdateTicketStatus(c *gin.Context) {
 	}
 
 	var ticket models.Ticket
-	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&ticket, uint(id)).Error; err != nil {
+	if err := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").First(&ticket, uint(id)).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "status updated"})
 		return
 	}
@@ -328,7 +328,7 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 	}
 
 	var updatedTicket models.Ticket
-	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&updatedTicket, uint(id)).Error; err != nil {
+	if err := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").First(&updatedTicket, uint(id)).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "ticket assigned"})
 		return
 	}
