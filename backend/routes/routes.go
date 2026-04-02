@@ -23,6 +23,7 @@ func RegisterAPIRoutes(router *gin.Engine, db *gorm.DB) {
 		api.GET("/tickets", ticketController.GetTickets)
 		api.GET("/tickets/:id", ticketController.GetTicketByID)
 		api.POST("/tickets", ticketController.CreateTicket)
+		api.DELETE("/tickets/:id", ticketController.CancelTicket)
 		api.PATCH("/tickets/:id/status", ticketController.UpdateTicketStatus)
 		api.PATCH("/tickets/:id/assign", ticketController.AssignTicket)
 		api.GET("/tickets/:id/chat-messages", chatController.GetTicketMessages)

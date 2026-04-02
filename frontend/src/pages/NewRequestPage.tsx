@@ -33,6 +33,11 @@ export default function NewRequestPage() {
     image: null as File | null,
   });
 
+  const submitForm = () => {
+    const formElement = document.querySelector('form') as HTMLFormElement | null;
+    formElement?.requestSubmit();
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError('');
@@ -195,6 +200,12 @@ export default function NewRequestPage() {
             rows={4}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                submitForm();
+              }
+            }}
             placeholder="อธิบายรายละเอียดของปัญหา สถานที่ และอาการที่พบ..."
             className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-800 placeholder-brown-300
               focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition resize-none"

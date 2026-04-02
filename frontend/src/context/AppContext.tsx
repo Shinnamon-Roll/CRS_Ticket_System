@@ -4,6 +4,9 @@ import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessa
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
 const NOTIFICATIONS_STORAGE_KEY = 'crs_notifications';
+const LANGUAGE_STORAGE_KEY = 'crs_language';
+
+type AppLanguage = 'th' | 'en';
 
 interface BackendUser {
   id: number;
@@ -83,9 +86,11 @@ interface AppContextType {
   tickets: Ticket[];
   refreshTickets: (search?: string) => Promise<void>;
   createTicket: (payload: CreateTicketPayload) => Promise<Ticket>;
+  cancelTicket: (id: string) => Promise<void>;
   assignTicket: (id: string, assigneeId: string) => Promise<void>;
   getTicketsByStage: (stage: string) => Ticket[];
   getUserTickets: () => Ticket[];
+  getDepartmentTasks: () => Ticket[];
   updateTicketStage: (id: string, stage: TicketStage) => Promise<void>;
   reviewTicket: (id: string, isApproved: boolean) => Promise<void>;
 
@@ -102,6 +107,10 @@ interface AppContextType {
   unreadCount: number;
   markNotificationRead: (id: string) => void;
   markAllRead: () => void;
+
+  // Language
+  language: AppLanguage;
+  toggleLanguage: () => void;
 
   // UI State
   sidebarOpen: boolean;
@@ -126,6 +135,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     } catch {
       return [];
     }
+  });
+  const [language, setLanguage] = useState<AppLanguage>(() => {
+    const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+    return stored === 'en' ? 'en' : 'th';
   });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeChatTicketId, setActiveChatTicketId] = useState<string | null>(null);
@@ -315,6 +328,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     [tickets, currentUser.id]
   );
 
+  const getDepartmentTasks = useCallback(() => {
+    return tickets.filter((t) => {
+      if (t.department !== currentUser.department) return false;
+      if (t.stage === 'done') return false;
+      return true;
+    });
+  }, [tickets, currentUser.department]);
+
   const createTicket = useCallback(async (payload: CreateTicketPayload) => {
     const formData = new FormData();
     formData.append('title', payload.title);
@@ -349,6 +370,25 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return mapped;
   }, [mapTicket, pushNotification]);
 
+  const cancelTicket = useCallback(async (id: string) => {
+    const res = await fetch(
+      `${API_BASE_URL}/api/tickets/${id}?requester_id=${encodeURIComponent(currentUser.id)}`,
+      { method: 'DELETE' }
+    );
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: 'failed to cancel ticket' }));
+      throw new Error(err.error || 'failed to cancel ticket');
+    }
+
+    const removed = tickets.find((t) => t.id === id);
+    setTickets((prev) => prev.filter((t) => t.id !== id));
+    pushNotification({
+      title: 'ยกเลิกคำขอแล้ว',
+      message: `${removed?.code || 'Ticket'} ถูกยกเลิกเรียบร้อย`,
+      ticketCode: removed?.code,
+    });
+  }, [currentUser.id, pushNotification, tickets]);
+
   const updateTicketStage = useCallback(async (id: string, stage: TicketStage) => {
     const res = await fetch(`${API_BASE_URL}/api/tickets/${id}/status`, {
       method: 'PATCH',
@@ -373,7 +413,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, [updateTicketStage]);
 
   const assignTicket = useCallback(async (id: string, assigneeId: string) => {
-    const res = await fetch(`${API_BASE_URL}/api/tickets/${id}/assign`, {
+    const res = await fetch(`${API_BASE_URL}/api/tickets/${id}/assign?user_id=${encodeURIComponent(currentUser.id)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ assignee_id: Number(assigneeId) }),
@@ -546,6 +586,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
   }, [notifications]);
 
+  useEffect(() => {
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, language);
+  }, [language]);
+
+  const toggleLanguage = useCallback(() => {
+    setLanguage((prev) => (prev === 'th' ? 'en' : 'th'));
+  }, []);
+
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markNotificationRead = useCallback((id: string) => {
@@ -570,9 +618,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         tickets,
         refreshTickets,
         createTicket,
+        cancelTicket,
         assignTicket,
         getTicketsByStage,
         getUserTickets,
+        getDepartmentTasks,
         updateTicketStage,
         reviewTicket,
         activeChatTicketId,
@@ -585,6 +635,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
         unreadCount,
         markNotificationRead,
         markAllRead,
+        language,
+        toggleLanguage,
         sidebarOpen,
         setSidebarOpen,
       }}

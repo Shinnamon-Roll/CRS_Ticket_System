@@ -6,7 +6,7 @@ import { useState, useMemo } from 'react';
 import type { TicketStage } from '../types';
 
 export default function MyRequestsPage() {
-  const { getUserTickets } = useApp();
+  const { getUserTickets, cancelTicket, language } = useApp();
   const userTickets = getUserTickets();
   const [filterStage, setFilterStage] = useState<TicketStage | 'all'>('all');
 
@@ -27,7 +27,7 @@ export default function MyRequestsPage() {
         <section className="bg-red-50/50 rounded-2xl p-5 border border-red-200/50">
           <h3 className="text-lg font-bold text-red-800 mb-4 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>
             <AlertCircle className="w-5 h-5" />
-            งานที่รอการรีวิวจากคุณ (Pending Your Review)
+            {language === 'th' ? 'งานที่รอการรีวิวจากคุณ (Pending Your Review)' : 'Pending Your Review'}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {pendingReview.map((ticket) => (
@@ -46,7 +46,7 @@ export default function MyRequestsPage() {
               ประวัติงานแจ้งซ่อม / IT Helpdesk
             </h2>
             <p className="text-sm text-brown-500 mt-1">
-              Request ที่คุณส่งเข้ามาทั้งหมด {userTickets.length} รายการ
+              {language === 'th' ? `Request ที่คุณส่งเข้ามาทั้งหมด ${userTickets.length} รายการ` : `You created ${userTickets.length} requests`}
             </p>
           </div>
 
@@ -58,7 +58,7 @@ export default function MyRequestsPage() {
               onChange={(e) => setFilterStage(e.target.value as TicketStage | 'all')}
               className="text-sm rounded-xl border border-brown-200 bg-white px-3 py-2 text-brown-700 focus:outline-none focus:ring-2 focus:ring-gold-400/50"
             >
-              <option value="all">ทุกสถานะ</option>
+              <option value="all">{language === 'th' ? 'ทุกสถานะ' : 'All stages'}</option>
               {stageConfig.map((s) => (
                 <option key={s.key} value={s.key}>
                   {s.label}
@@ -71,12 +71,31 @@ export default function MyRequestsPage() {
         {filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-brown-300">
             <ClipboardList className="w-12 h-12 mb-3 opacity-50" />
-            <p className="text-sm">ไม่มี Request ในสถานะนี้</p>
+            <p className="text-sm">{language === 'th' ? 'ไม่มี Request ในสถานะนี้' : 'No requests in this stage'}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
             {filtered.map((ticket) => (
-              <TicketCard key={ticket.id} ticket={ticket} />
+              <div key={ticket.id} className="space-y-2">
+                <TicketCard ticket={ticket} />
+                {ticket.stage !== 'done' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        language === 'th'
+                          ? `ยืนยันยกเลิก Ticket ${ticket.code}?`
+                          : `Cancel ticket ${ticket.code}?`
+                      );
+                      if (!confirmed) return;
+                      void cancelTicket(ticket.id);
+                    }}
+                    className="w-full rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100"
+                  >
+                    {language === 'th' ? 'ยกเลิก Ticket นี้' : 'Cancel Ticket'}
+                  </button>
+                )}
+              </div>
             ))}
           </div>
         )}

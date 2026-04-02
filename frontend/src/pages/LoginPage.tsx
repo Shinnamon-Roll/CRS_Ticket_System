@@ -3,7 +3,7 @@ import { LogIn, ShieldCheck } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 
 export default function LoginPage() {
-  const { login } = useApp();
+  const { login, language } = useApp();
   const [email, setEmail] = useState('admin');
   const [password, setPassword] = useState('admin');
   const [loading, setLoading] = useState(false);
@@ -16,7 +16,7 @@ export default function LoginPage() {
     try {
       await login(email, password);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Login failed');
+      setError(err instanceof Error ? err.message : language === 'th' ? 'เข้าสู่ระบบไม่สำเร็จ' : 'Login failed');
     } finally {
       setLoading(false);
     }
@@ -31,7 +31,7 @@ export default function LoginPage() {
           </div>
           <div>
             <h1 className="text-xl font-bold text-brown-800">CRS Login</h1>
-            <p className="text-xs text-brown-500">เข้าสู่ระบบด้วย Email และ Password</p>
+            <p className="text-xs text-brown-500">{language === 'th' ? 'เข้าสู่ระบบด้วย Email และ Password' : 'Sign in with email and password'}</p>
           </div>
         </div>
 
@@ -70,7 +70,7 @@ export default function LoginPage() {
             className="w-full inline-flex items-center justify-center gap-2 rounded-xl bg-brown-700 text-cream-50 py-2.5 text-sm font-semibold hover:bg-brown-800 disabled:opacity-60"
           >
             <LogIn className="w-4 h-4" />
-            {loading ? 'กำลังเข้าสู่ระบบ...' : 'เข้าสู่ระบบ'}
+            {loading ? (language === 'th' ? 'กำลังเข้าสู่ระบบ...' : 'Signing in...') : (language === 'th' ? 'เข้าสู่ระบบ' : 'Sign in')}
           </button>
         </form>
       </div>

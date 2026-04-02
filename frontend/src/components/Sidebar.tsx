@@ -20,19 +20,20 @@ interface MenuItem {
   roles: ('admin' | 'user')[];
 }
 
-const menuItems: MenuItem[] = [
-  { path: '/', label: 'แดชบอร์ด', icon: <LayoutDashboard className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { path: '/requests', label: 'Request ทั้งหมด', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { path: '/stats', label: 'สถิติ', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
-  { path: '/admin/management', label: 'จัดการแผนกและผู้ใช้', icon: <UserCog className="w-4.5 h-4.5" />, roles: ['admin'] },
-  { path: '/my-requests', label: 'สรุปงานของฉัน', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
-  { path: '/new-request', label: 'ส่ง Request ใหม่', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
-  { path: '/settings', label: 'ตั้งค่า', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
-];
-
 export default function Sidebar() {
-  const { currentRole, sidebarOpen, tickets, currentUser } = useApp();
+  const { currentRole, sidebarOpen, tickets, currentUser, language } = useApp();
   const location = useLocation();
+
+  const menuItems: MenuItem[] = [
+    { path: '/', label: language === 'th' ? 'แดชบอร์ด' : 'Dashboard', icon: <LayoutDashboard className="w-4.5 h-4.5" />, roles: ['admin'] },
+    { path: '/requests', label: language === 'th' ? 'Request ทั้งหมด' : 'All Requests', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['admin'] },
+    { path: '/stats', label: language === 'th' ? 'สถิติ' : 'Statistics', icon: <BarChart3 className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
+    { path: '/admin/management', label: language === 'th' ? 'จัดการแผนกและผู้ใช้' : 'Departments & Users', icon: <UserCog className="w-4.5 h-4.5" />, roles: ['admin'] },
+    { path: '/my-requests', label: language === 'th' ? 'สรุปงานของฉัน' : 'My Requests', icon: <ClipboardList className="w-4.5 h-4.5" />, roles: ['user'] },
+    { path: '/tasks', label: language === 'th' ? 'งานที่ต้องรับผิดชอบ' : 'Department Tasks', icon: <ListTodo className="w-4.5 h-4.5" />, roles: ['user'] },
+    { path: '/new-request', label: language === 'th' ? 'ส่ง Request ใหม่' : 'New Request', icon: <PlusCircle className="w-4.5 h-4.5" />, roles: ['user'] },
+    { path: '/settings', label: language === 'th' ? 'ตั้งค่า' : 'Settings', icon: <Settings className="w-4.5 h-4.5" />, roles: ['admin', 'user'] },
+  ];
 
   const filteredMenu = menuItems.filter((item) => item.roles.includes(currentRole));
 
@@ -78,7 +79,7 @@ export default function Sidebar() {
         {/* Menu Items */}
         <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           <p className="px-3 pt-2 pb-1.5 text-[10px] font-bold uppercase tracking-widest text-brown-400">
-            เมนูหลัก
+            {language === 'th' ? 'เมนูหลัก' : 'Main Menu'}
           </p>
           {filteredMenu.map((item) => {
             const isActive = location.pathname === item.path || (item.path === '/' && location.pathname.startsWith('/stage/'));
@@ -108,12 +109,12 @@ export default function Sidebar() {
           <div className="border-t border-cream-200 p-3">
             <p className="px-3 pt-1 pb-2 text-[10px] font-bold uppercase tracking-widest text-brown-400 flex items-center gap-1.5">
               <Loader2 className="w-3 h-3 animate-spin" />
-              งานปัจจุบัน ({activeTasks.length})
+              {language === 'th' ? `งานปัจจุบัน (${activeTasks.length})` : `Active Tasks (${activeTasks.length})`}
             </p>
 
             <div className="space-y-1.5 max-h-44 overflow-y-auto">
               {activeTasks.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-brown-400 italic">ไม่มีงานที่กำลังดำเนินการ</p>
+                <p className="px-3 py-2 text-xs text-brown-400 italic">{language === 'th' ? 'ไม่มีงานที่กำลังดำเนินการ' : 'No active tasks'}</p>
               ) : (
                 activeTasks.slice(0, 4).map((task) => (
                   <div
@@ -138,7 +139,7 @@ export default function Sidebar() {
         {/* Footer */}
         <div className="p-3 border-t border-cream-200">
           <div className="px-3 py-2 rounded-xl bg-gradient-to-r from-cream-200/60 to-cream-100/60">
-            <p className="text-[10px] text-brown-400 uppercase tracking-wider">แผนก</p>
+            <p className="text-[10px] text-brown-400 uppercase tracking-wider">{language === 'th' ? 'แผนก' : 'Department'}</p>
             <p className="text-xs font-medium text-brown-700 truncate">{currentUser.department}</p>
           </div>
         </div>

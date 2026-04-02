@@ -174,6 +174,12 @@ export default function TicketChatWidget() {
               <textarea
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    void handleSend();
+                  }
+                }}
                 placeholder="พิมพ์ข้อความ..."
                 rows={2}
                 className="flex-1 resize-none rounded-lg border border-brown-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brown-300"

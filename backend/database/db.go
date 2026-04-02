@@ -101,9 +101,13 @@ func seedDeparttmentsAndUsers(db *gorm.DB) error {
 		return err
 	}
 
-	// Admin login required by user: email=admin password=admin.
+	// Keep one guaranteed admin login required by user: email=admin password=admin.
 	var admin models.User
 	err := db.Where("email = ?", "admin").First(&admin).Error
+	if err == gorm.ErrRecordNotFound {
+		err = db.Where("role = ?", models.RoleAdmin).Order("id asc").First(&admin).Error
+	}
+
 	if err == gorm.ErrRecordNotFound {
 		adminDeptID := adminDept.ID
 		admin = models.User{
@@ -122,6 +126,8 @@ func seedDeparttmentsAndUsers(db *gorm.DB) error {
 	} else {
 		adminDeptID := adminDept.ID
 		updates := map[string]interface{}{
+			"name":          "System Admin",
+			"email":         "admin",
 			"password_hash": "admin",
 			"department":    adminDept.Name,
 			"role":          models.RoleAdmin,

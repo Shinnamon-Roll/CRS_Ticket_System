@@ -7,6 +7,7 @@ import {
   User as UserIcon,
   X,
   AlertTriangle,
+  Languages,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import type { Notification } from '../types';
@@ -20,6 +21,8 @@ export default function Header() {
     unreadCount,
     markNotificationRead,
     markAllRead,
+    language,
+    toggleLanguage,
     sidebarOpen,
     setSidebarOpen,
   } = useApp();
@@ -75,10 +78,20 @@ export default function Header() {
           className="flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-medium
             bg-gradient-to-r from-cream-200 to-cream-300 hover:from-cream-300 hover:to-cream-400
             text-brown-700 transition-all duration-300 group border border-brown-200/30"
-          title="ออกจากระบบ"
+          title={language === 'th' ? 'ออกจากระบบ' : 'Logout'}
         >
           <LogOut className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">ออกจากระบบ</span>
+          <span className="hidden sm:inline">{language === 'th' ? 'ออกจากระบบ' : 'Logout'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={toggleLanguage}
+          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border border-brown-200/40 text-brown-700 hover:bg-cream-200/60"
+          title={language === 'th' ? 'เปลี่ยนภาษา' : 'Switch language'}
+        >
+          <Languages className="w-3.5 h-3.5" />
+          <span>{language.toUpperCase()}</span>
         </button>
 
         {/* Notifications */}
@@ -101,19 +114,19 @@ export default function Header() {
           {showNotifs && (
             <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl border border-brown-100/50 overflow-hidden animate-fade-in-up z-50">
               <div className="flex items-center justify-between px-4 py-3 border-b border-cream-200">
-                <h3 className="font-semibold text-brown-800 text-sm">การแจ้งเตือน</h3>
+                <h3 className="font-semibold text-brown-800 text-sm">{language === 'th' ? 'การแจ้งเตือน' : 'Notifications'}</h3>
                 {unreadCount > 0 && (
                   <button
                     onClick={() => setShowConfirmAllRead(true)}
                     className="text-xs text-gold-600 hover:text-gold-500 font-medium"
                   >
-                    อ่านทั้งหมด
+                    {language === 'th' ? 'อ่านทั้งหมด' : 'Read all'}
                   </button>
                 )}
               </div>
               <div className="max-h-72 overflow-y-auto">
                 {notifications.length === 0 ? (
-                  <p className="p-4 text-center text-sm text-brown-400">ไม่มีการแจ้งเตือน</p>
+                  <p className="p-4 text-center text-sm text-brown-400">{language === 'th' ? 'ไม่มีการแจ้งเตือน' : 'No notifications'}</p>
                 ) : (
                   notifications.map((n) => (
                     <button
@@ -190,7 +203,7 @@ export default function Header() {
           <div className="relative w-full max-w-lg rounded-2xl border border-brown-200 bg-white shadow-2xl p-5">
             <div className="flex items-start justify-between gap-3 mb-3">
               <div>
-                <p className="text-xs text-brown-500">รายละเอียดการแจ้งเตือน</p>
+                <p className="text-xs text-brown-500">{language === 'th' ? 'รายละเอียดการแจ้งเตือน' : 'Notification detail'}</p>
                 <h3 className="text-lg font-bold text-brown-800 mt-1">{selectedNotification.title}</h3>
               </div>
               <button
@@ -230,16 +243,16 @@ export default function Header() {
           <div className="relative w-full max-w-md rounded-2xl border border-brown-200 bg-white shadow-2xl p-5">
             <div className="flex items-center gap-2 text-amber-700 mb-3">
               <AlertTriangle className="w-5 h-5" />
-              <h3 className="text-base font-bold">ยืนยันอ่านทั้งหมด</h3>
+              <h3 className="text-base font-bold">{language === 'th' ? 'ยืนยันอ่านทั้งหมด' : 'Confirm clear all'}</h3>
             </div>
-            <p className="text-sm text-brown-700">ต้องการลบการแจ้งเตือนทั้งหมดใช่หรือไม่?</p>
+            <p className="text-sm text-brown-700">{language === 'th' ? 'ต้องการลบการแจ้งเตือนทั้งหมดใช่หรือไม่?' : 'Do you want to remove all notifications?'}</p>
             <div className="mt-5 flex items-center justify-end gap-2">
               <button
                 type="button"
                 onClick={() => setShowConfirmAllRead(false)}
                 className="px-3 py-2 text-sm rounded-lg border border-brown-200 text-brown-600 hover:bg-brown-50"
               >
-                ยกเลิก
+                {language === 'th' ? 'ยกเลิก' : 'Cancel'}
               </button>
               <button
                 type="button"
@@ -250,7 +263,7 @@ export default function Header() {
                 }}
                 className="px-3 py-2 text-sm rounded-lg bg-brown-700 text-cream-50 hover:bg-brown-800"
               >
-                ยืนยัน
+                {language === 'th' ? 'ยืนยัน' : 'Confirm'}
               </button>
             </div>
           </div>

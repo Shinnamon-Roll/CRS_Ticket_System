@@ -41,10 +41,14 @@ func (tc *TicketController) GetTickets(c *gin.Context) {
 	query := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").Order("created_at desc")
 
 	if userID > 0 && user.Role == models.RoleUser {
-		query = query.Where(
-			"(requester_id = ? OR assignee_id = ? OR requester_id IN (SELECT id FROM users WHERE department_id = ?))",
-			userID, userID, user.DepartmentID,
-		)
+		if user.DepartmentID != nil {
+			query = query.Where(
+				"(requester_id = ? OR assignee_id = ? OR department_id = ?)",
+				userID, userID, *user.DepartmentID,
+			)
+		} else {
+			query = query.Where("(requester_id = ? OR assignee_id = ?)", userID, userID)
+		}
 	}
 
 	if keyword := strings.TrimSpace(c.Query("q")); keyword != "" {
@@ -263,9 +267,48 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 		return
 	}
 
+	actorID64, err := strconv.ParseUint(c.Query("user_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "user_id query is required"})
+		return
+	}
+	actorID := uint(actorID64)
+
+	var actor models.User
+	if err := tc.DB.First(&actor, actorID).Error; err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "actor not found"})
+		return
+	}
+
+	var ticket models.Ticket
+	if err := tc.DB.First(&ticket, uint(id)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ticket not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load ticket"})
+		return
+	}
+
+	if actor.Role == models.RoleUser {
+		if actor.DepartmentID == nil || ticket.DepartmentID == nil || *actor.DepartmentID != *ticket.DepartmentID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "you can only accept tasks in your department"})
+			return
+		}
+		if payload.AssigneeID != actor.ID {
+			c.JSON(http.StatusForbidden, gin.H{"error": "you can only accept task as yourself"})
+			return
+		}
+	}
+
 	var assignee models.User
 	if err := tc.DB.First(&assignee, payload.AssigneeID).Error; err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "assignee not found"})
+		return
+	}
+
+	if ticket.DepartmentID != nil && assignee.DepartmentID != nil && *ticket.DepartmentID != *assignee.DepartmentID {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "assignee must be in the same target department"})
 		return
 	}
 
@@ -279,13 +322,55 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 		return
 	}
 
-	var ticket models.Ticket
-	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&ticket, uint(id)).Error; err != nil {
+	var updatedTicket models.Ticket
+	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&updatedTicket, uint(id)).Error; err != nil {
 		c.JSON(http.StatusOK, gin.H{"message": "ticket assigned"})
 		return
 	}
 
-	c.JSON(http.StatusOK, ticket)
+	c.JSON(http.StatusOK, updatedTicket)
+}
+
+func (tc *TicketController) CancelTicket(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid ticket id"})
+		return
+	}
+
+	requesterID64, err := strconv.ParseUint(c.Query("requester_id"), 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "requester_id query is required"})
+		return
+	}
+	requesterID := uint(requesterID64)
+
+	var ticket models.Ticket
+	if err := tc.DB.First(&ticket, uint(id)).Error; err != nil {
+		if err == gorm.ErrRecordNotFound {
+			c.JSON(http.StatusNotFound, gin.H{"error": "ticket not found"})
+			return
+		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to load ticket"})
+		return
+	}
+
+	if ticket.RequesterID != requesterID {
+		c.JSON(http.StatusForbidden, gin.H{"error": "only requester can cancel this ticket"})
+		return
+	}
+
+	if ticket.Status == models.StatusDone {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "cannot cancel completed ticket"})
+		return
+	}
+
+	if err := tc.DB.Delete(&models.Ticket{}, ticket.ID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to cancel ticket"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "ticket cancelled"})
 }
 
 func saveTicketUploadedImage(c *gin.Context) (*string, error) {
