@@ -3,8 +3,6 @@ package controllers
 import (
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -12,7 +10,6 @@ import (
 	"crs-ticket-system/backend/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 )
 
@@ -41,7 +38,7 @@ func (tc *TicketController) GetTickets(c *gin.Context) {
 		}
 	}
 
-	query := tc.DB.Preload("Requester").Preload("Assignee").Order("created_at desc")
+	query := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").Order("created_at desc")
 
 	if userID > 0 && user.Role == models.RoleUser {
 		query = query.Where(
@@ -91,7 +88,7 @@ func (tc *TicketController) GetTicketByID(c *gin.Context) {
 	}
 
 	var ticket models.Ticket
-	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&ticket, uint(id)).Error; err != nil {
+	if err := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").First(&ticket, uint(id)).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
 			c.JSON(http.StatusNotFound, gin.H{"error": "ticket not found"})
 			return
@@ -111,6 +108,7 @@ func (tc *TicketController) CreateTicket(c *gin.Context) {
 	statusInput := strings.TrimSpace(c.DefaultPostForm("status", string(models.StatusRequest)))
 	requesterIDInput := strings.TrimSpace(c.PostForm("requester_id"))
 	assigneeIDInput := strings.TrimSpace(c.PostForm("assignee_id"))
+	departmentIDInput := strings.TrimSpace(c.PostForm("department_id"))
 
 	if title == "" || description == "" || location == "" || requesterIDInput == "" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "title, description, location and requester_id are required"})
@@ -158,6 +156,22 @@ func (tc *TicketController) CreateTicket(c *gin.Context) {
 		assigneeID = &tmp
 	}
 
+	var departmentID *uint
+	if departmentIDInput != "" {
+		parsedID, err := strconv.ParseUint(departmentIDInput, 10, 64)
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "department_id must be a number"})
+			return
+		}
+		tmp := uint(parsedID)
+		var department models.Department
+		if err := tc.DB.First(&department, tmp).Error; err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "department not found"})
+			return
+		}
+		departmentID = &tmp
+	}
+
 	imageURL, err := saveTicketUploadedImage(c)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -165,15 +179,16 @@ func (tc *TicketController) CreateTicket(c *gin.Context) {
 	}
 
 	ticket := models.Ticket{
-		TicketCode:  generateTicketCode(),
-		Title:       title,
-		Description: description,
-		Location:    location,
-		Status:      status,
-		Priority:    priority,
-		ImageURL:    imageURL,
-		RequesterID: requesterID,
-		AssigneeID:  assigneeID,
+		TicketCode:   generateTicketCode(),
+		Title:        title,
+		Description:  description,
+		Location:     location,
+		Status:       status,
+		Priority:     priority,
+		ImageURL:     imageURL,
+		RequesterID:  requesterID,
+		AssigneeID:   assigneeID,
+		DepartmentID: departmentID,
 	}
 
 	if err := tc.DB.Create(&ticket).Error; err != nil {
@@ -181,7 +196,7 @@ func (tc *TicketController) CreateTicket(c *gin.Context) {
 		return
 	}
 
-	if err := tc.DB.Preload("Requester").Preload("Assignee").First(&ticket, ticket.ID).Error; err != nil {
+	if err := tc.DB.Preload("Requester").Preload("Assignee").Preload("Department").First(&ticket, ticket.ID).Error; err != nil {
 		c.JSON(http.StatusCreated, ticket)
 		return
 	}
@@ -274,35 +289,5 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 }
 
 func saveTicketUploadedImage(c *gin.Context) (*string, error) {
-	file, err := c.FormFile("image")
-	if err != nil {
-		if err == http.ErrMissingFile {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("invalid image upload")
-	}
-
-	if file.Size > 10*1024*1024 {
-		return nil, fmt.Errorf("image size must not exceed 10MB")
-	}
-
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
-	if !allowed[ext] {
-		return nil, fmt.Errorf("image must be .jpg, .jpeg, .png, or .webp")
-	}
-
-	if err := os.MkdirAll("uploads", 0755); err != nil {
-		return nil, fmt.Errorf("failed to prepare upload directory")
-	}
-
-	fileName := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), uuid.NewString(), ext)
-	dst := filepath.Join("uploads", fileName)
-
-	if err := c.SaveUploadedFile(file, dst); err != nil {
-		return nil, fmt.Errorf("failed to save image")
-	}
-
-	url := "/uploads/" + fileName
-	return &url, nil
+	return saveSingleImageFromField(c, "image", "uploads")
 }

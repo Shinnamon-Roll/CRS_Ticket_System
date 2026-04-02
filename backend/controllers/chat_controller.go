@@ -1,18 +1,13 @@
 package controllers
 
 import (
-	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"crs-ticket-system/backend/models"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"gorm.io/gorm"
 )
@@ -70,41 +65,74 @@ func (cc *ChatController) CreateTicketMessage(c *gin.Context) {
 	}
 
 	text := strings.TrimSpace(c.PostForm("text"))
-	imageURL, err := saveUploadedImage(c, "chat_uploads")
+	imageURLs, err := saveImagesFromFields(c, "chat_uploads", []string{"images", "image"})
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if text == "" && imageURL == nil {
+	if text == "" && len(imageURLs) == 0 {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "text or image is required"})
 		return
 	}
 
-	var textPtr *string
-	if text != "" {
-		textPtr = &text
+	var createdMessages []models.ChatMessage
+
+	if len(imageURLs) == 0 {
+		var textPtr *string
+		if text != "" {
+			textCopy := text
+			textPtr = &textCopy
+		}
+
+		message := models.ChatMessage{
+			TicketID:    ticket.ID,
+			SenderID:    userID,
+			MessageText: textPtr,
+		}
+
+		if err := cc.DB.Create(&message).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save chat message"})
+			return
+		}
+		createdMessages = append(createdMessages, message)
+	} else {
+		for i, imageURL := range imageURLs {
+			urlCopy := imageURL
+			var textPtr *string
+			if i == 0 && text != "" {
+				textCopy := text
+				textPtr = &textCopy
+			}
+
+			message := models.ChatMessage{
+				TicketID:    ticket.ID,
+				SenderID:    userID,
+				MessageText: textPtr,
+				ImageURL:    &urlCopy,
+			}
+
+			if err := cc.DB.Create(&message).Error; err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save chat message"})
+				return
+			}
+			createdMessages = append(createdMessages, message)
+		}
 	}
 
-	message := models.ChatMessage{
-		TicketID:    ticket.ID,
-		SenderID:    userID,
-		MessageText: textPtr,
-		ImageURL:    imageURL,
+	for i := range createdMessages {
+		if err := cc.DB.Preload("Sender").First(&createdMessages[i], createdMessages[i].ID).Error; err != nil {
+			continue
+		}
+		cc.hub.broadcast(ticket.ID, chatEvent{Type: "message.created", Message: createdMessages[i]})
 	}
 
-	if err := cc.DB.Create(&message).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save chat message"})
+	if len(createdMessages) == 1 {
+		c.JSON(http.StatusCreated, createdMessages[0])
 		return
 	}
 
-	if err := cc.DB.Preload("Sender").First(&message, message.ID).Error; err != nil {
-		c.JSON(http.StatusCreated, message)
-		return
-	}
-
-	cc.hub.broadcast(ticket.ID, chatEvent{Type: "message.created", Message: message})
-	c.JSON(http.StatusCreated, message)
+	c.JSON(http.StatusCreated, gin.H{"messages": createdMessages})
 }
 
 func (cc *ChatController) TicketChatWS(c *gin.Context) {
@@ -165,51 +193,18 @@ func (cc *ChatController) authorizeTicketParticipant(c *gin.Context) (*models.Ti
 		return nil, 0, false
 	}
 
-	if ticket.AssigneeID == nil {
-		c.JSON(http.StatusForbidden, gin.H{"error": "chat is available after ticket is assigned"})
-		return nil, 0, false
-	}
-
 	return &ticket, uint(userID64), true
 }
 
 func (cc *ChatController) isTicketParticipant(ticket *models.Ticket, userID uint) bool {
-	if ticket == nil || ticket.AssigneeID == nil {
+	if ticket == nil {
 		return false
 	}
-	return ticket.RequesterID == userID || *ticket.AssigneeID == userID
-}
-
-func saveUploadedImage(c *gin.Context, folder string) (*string, error) {
-	file, err := c.FormFile("image")
-	if err != nil {
-		if err == http.ErrMissingFile {
-			return nil, nil
-		}
-		return nil, fmt.Errorf("invalid image upload")
+	if ticket.RequesterID == userID {
+		return true
 	}
-
-	if file.Size > 10*1024*1024 {
-		return nil, fmt.Errorf("image size must not exceed 10MB")
+	if ticket.AssigneeID != nil && *ticket.AssigneeID == userID {
+		return true
 	}
-
-	ext := strings.ToLower(filepath.Ext(file.Filename))
-	allowed := map[string]bool{".jpg": true, ".jpeg": true, ".png": true, ".webp": true}
-	if !allowed[ext] {
-		return nil, fmt.Errorf("image must be .jpg, .jpeg, .png, or .webp")
-	}
-
-	if err := os.MkdirAll(folder, 0755); err != nil {
-		return nil, fmt.Errorf("failed to prepare upload directory")
-	}
-
-	fileName := fmt.Sprintf("%d_%s%s", time.Now().UnixNano(), uuid.NewString(), ext)
-	dst := filepath.Join(folder, fileName)
-
-	if err := c.SaveUploadedFile(file, dst); err != nil {
-		return nil, fmt.Errorf("failed to save image")
-	}
-
-	url := "/" + folder + "/" + fileName
-	return &url, nil
+	return false
 }

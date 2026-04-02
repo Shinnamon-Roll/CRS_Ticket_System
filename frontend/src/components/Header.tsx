@@ -5,8 +5,11 @@ import {
   LogOut,
   Shield,
   User as UserIcon,
+  X,
+  AlertTriangle,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import type { Notification } from '../types';
 
 export default function Header() {
   const {
@@ -21,6 +24,8 @@ export default function Header() {
     setSidebarOpen,
   } = useApp();
   const [showNotifs, setShowNotifs] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState<Notification | null>(null);
+  const [showConfirmAllRead, setShowConfirmAllRead] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
 
   // Close notifs on outside click
@@ -99,7 +104,7 @@ export default function Header() {
                 <h3 className="font-semibold text-brown-800 text-sm">การแจ้งเตือน</h3>
                 {unreadCount > 0 && (
                   <button
-                    onClick={markAllRead}
+                    onClick={() => setShowConfirmAllRead(true)}
                     className="text-xs text-gold-600 hover:text-gold-500 font-medium"
                   >
                     อ่านทั้งหมด
@@ -113,7 +118,7 @@ export default function Header() {
                   notifications.map((n) => (
                     <button
                       key={n.id}
-                      onClick={() => markNotificationRead(n.id)}
+                      onClick={() => setSelectedNotification(n)}
                       className={`w-full text-left px-4 py-3 border-b border-cream-100 hover:bg-cream-50 transition-colors ${
                         !n.read ? 'bg-gold-300/10' : ''
                       }`}
@@ -170,6 +175,87 @@ export default function Header() {
           </div>
         </div>
       </div>
+
+      {selectedNotification && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-brown-900/35 backdrop-blur-sm"
+            aria-label="close notification detail"
+            onClick={() => {
+              markNotificationRead(selectedNotification.id);
+              setSelectedNotification(null);
+            }}
+          />
+          <div className="relative w-full max-w-lg rounded-2xl border border-brown-200 bg-white shadow-2xl p-5">
+            <div className="flex items-start justify-between gap-3 mb-3">
+              <div>
+                <p className="text-xs text-brown-500">รายละเอียดการแจ้งเตือน</p>
+                <h3 className="text-lg font-bold text-brown-800 mt-1">{selectedNotification.title}</h3>
+              </div>
+              <button
+                type="button"
+                className="p-2 rounded-lg text-brown-500 hover:bg-brown-100 hover:text-brown-700"
+                onClick={() => {
+                  markNotificationRead(selectedNotification.id);
+                  setSelectedNotification(null);
+                }}
+                aria-label="close"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <p className="text-sm text-brown-700 leading-relaxed whitespace-pre-wrap">{selectedNotification.message}</p>
+            <div className="mt-4 text-xs text-brown-500 flex items-center justify-between">
+              <span>
+                {new Date(selectedNotification.timestamp).toLocaleString('th-TH', {
+                  dateStyle: 'short',
+                  timeStyle: 'short',
+                })}
+              </span>
+              {selectedNotification.ticketCode ? <span>{selectedNotification.ticketCode}</span> : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showConfirmAllRead && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center px-4">
+          <button
+            type="button"
+            className="absolute inset-0 bg-brown-900/35 backdrop-blur-sm"
+            aria-label="close confirm"
+            onClick={() => setShowConfirmAllRead(false)}
+          />
+          <div className="relative w-full max-w-md rounded-2xl border border-brown-200 bg-white shadow-2xl p-5">
+            <div className="flex items-center gap-2 text-amber-700 mb-3">
+              <AlertTriangle className="w-5 h-5" />
+              <h3 className="text-base font-bold">ยืนยันอ่านทั้งหมด</h3>
+            </div>
+            <p className="text-sm text-brown-700">ต้องการลบการแจ้งเตือนทั้งหมดใช่หรือไม่?</p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowConfirmAllRead(false)}
+                className="px-3 py-2 text-sm rounded-lg border border-brown-200 text-brown-600 hover:bg-brown-50"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  markAllRead();
+                  setShowConfirmAllRead(false);
+                  setShowNotifs(false);
+                }}
+                className="px-3 py-2 text-sm rounded-lg bg-brown-700 text-cream-50 hover:bg-brown-800"
+              >
+                ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </header>
   );
 }

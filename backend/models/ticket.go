@@ -36,6 +36,9 @@ type Ticket struct {
 	AssigneeID *uint `json:"assignee_id"`
 	Assignee   *User `json:"assignee" gorm:"foreignKey:AssigneeID"`
 
+	DepartmentID *uint       `json:"department_id"`
+	Department   *Department `json:"department" gorm:"foreignKey:DepartmentID"`
+
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
 }

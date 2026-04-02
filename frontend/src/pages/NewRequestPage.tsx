@@ -18,7 +18,7 @@ const categories = [
 ];
 
 export default function NewRequestPage() {
-  const { currentUser, createTicket } = useApp();
+  const { currentUser, createTicket, departments } = useApp();
   const navigate = useNavigate();
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
@@ -29,6 +29,7 @@ export default function NewRequestPage() {
     location: '',
     category: categories[0],
     priority: 'medium' as Priority,
+    departmentId: '',
     image: null as File | null,
   });
 
@@ -44,6 +45,7 @@ export default function NewRequestPage() {
         location: form.location,
         priority: form.priority,
         requesterId: currentUser.id,
+        departmentId: form.departmentId,
         image: form.image,
       });
       setSubmitted(true);
@@ -160,6 +162,28 @@ export default function NewRequestPage() {
           </div>
         </div>
 
+        {/* Department selector */}
+        <div>
+          <label htmlFor="req-department" className="block text-sm font-semibold text-brown-700 mb-1.5">
+            ส่งไปยังแผนก <span className="text-red-500">*</span>
+          </label>
+          <select
+            id="req-department"
+            required
+            value={form.departmentId}
+            onChange={(e) => setForm({ ...form, departmentId: e.target.value })}
+            className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-800
+              focus:outline-none focus:ring-2 focus:ring-gold-400/50 focus:border-gold-400 transition bg-white"
+          >
+            <option value="">-- เลือกแผนก --</option>
+            {departments.map((dept) => (
+              <option key={dept.id} value={dept.id}>
+                {dept.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         {/* Description */}
         <div>
           <label htmlFor="req-desc" className="block text-sm font-semibold text-brown-700 mb-1.5">
@@ -185,7 +209,7 @@ export default function NewRequestPage() {
           <input
             id="req-image"
             type="file"
-            accept="image/png,image/jpeg,image/webp"
+            accept="image/png,image/jpeg"
             onChange={(e) => setForm({ ...form, image: e.target.files?.[0] || null })}
             className="w-full rounded-xl border border-brown-200 px-4 py-2.5 text-sm text-brown-700
               file:mr-3 file:rounded-lg file:border-0 file:bg-cream-200 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-brown-700"

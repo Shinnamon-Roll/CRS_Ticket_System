@@ -16,7 +16,7 @@ export default function TicketChatWidget() {
   } = useApp();
 
   const [messageText, setMessageText] = useState('');
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [selectedImages, setSelectedImages] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -46,10 +46,10 @@ export default function TicketChatWidget() {
     try {
       await sendTicketChatMessage(ticket.id, {
         text: messageText,
-        image: selectedImage,
+        images: selectedImages,
       });
       setMessageText('');
-      setSelectedImage(null);
+      setSelectedImages([]);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -137,11 +137,7 @@ export default function TicketChatWidget() {
       </div>
 
       <div className="border-t border-brown-100 px-3 py-2.5 bg-white">
-        {!ticket.assignedTo ? (
-          <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
-            ยังไม่สามารถคุยได้จนกว่าจะมีผู้รับงานการ์ดนี้
-          </p>
-        ) : !canChat ? (
+        {!canChat ? (
           <p className="text-xs text-red-700 bg-red-50 border border-red-200 rounded-lg px-2.5 py-2">
             แชทนี้คุยได้เฉพาะผู้แจ้งปัญหาและผู้รับงานเท่านั้น (บทบาทปัจจุบัน: {currentRole})
           </p>
@@ -159,17 +155,18 @@ export default function TicketChatWidget() {
               <input
                 ref={fileInputRef}
                 type="file"
-                accept="image/*"
+                accept="image/png,image/jpeg"
+                multiple
                 className="hidden"
                 onChange={(e) => {
-                  const file = e.target.files?.[0] || null;
-                  setSelectedImage(file);
+                  const files = Array.from(e.target.files || []);
+                  setSelectedImages(files);
                 }}
               />
-              {selectedImage ? (
-                <span className="text-[11px] text-brown-500 truncate">แนบรูป: {selectedImage.name}</span>
+              {selectedImages.length > 0 ? (
+                <span className="text-[11px] text-brown-500 truncate">แนบรูป {selectedImages.length} รูป</span>
               ) : (
-                <span className="text-[11px] text-brown-400">แนบรูปได้ 1 รูปต่อข้อความ</span>
+                <span className="text-[11px] text-brown-400">แนบรูปได้หลายรูปต่อข้อความ</span>
               )}
             </div>
 
@@ -184,7 +181,7 @@ export default function TicketChatWidget() {
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={sending || (!messageText.trim() && !selectedImage)}
+                disabled={sending || (!messageText.trim() && selectedImages.length === 0)}
                 className="h-[42px] px-3 rounded-lg bg-brown-700 text-cream-50 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-brown-800 transition-colors inline-flex items-center gap-1"
               >
                 <Send className="w-4 h-4" />

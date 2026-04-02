@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react';
 import type { Role, Ticket, User, Notification, TicketStage, Priority, ChatMessage, Department } from '../types';
-import { mockNotifications } from '../data/mockData';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 const WS_BASE_URL = API_BASE_URL.replace(/^http/, 'ws');
+const NOTIFICATIONS_STORAGE_KEY = 'crs_notifications';
 
 interface BackendUser {
   id: number;
@@ -27,9 +27,14 @@ interface BackendTicket {
   priority: Priority;
   image_url?: string | null;
   requester_id: number;
+  department_id?: number | null;
   assignee_id?: number | null;
   requester?: BackendUser;
   assignee?: BackendUser | null;
+  department?: {
+    id: number;
+    name: string;
+  } | null;
   created_at: string;
   updated_at: string;
 }
@@ -49,12 +54,17 @@ interface ChatWebSocketEvent {
   message: BackendChatMessage;
 }
 
+interface BackendCreateChatMessagesResponse {
+  messages?: BackendChatMessage[];
+}
+
 interface CreateTicketPayload {
   title: string;
   description: string;
   location: string;
   priority: Priority;
   requesterId: string;
+  departmentId?: string;
   image?: File | null;
 }
 
@@ -84,7 +94,7 @@ interface AppContextType {
   openTicketChat: (ticketId: string) => void;
   closeTicketChat: () => void;
   getTicketChatMessages: (ticketId: string) => ChatMessage[];
-  sendTicketChatMessage: (ticketId: string, payload: { text?: string; image?: File | null }) => Promise<void>;
+  sendTicketChatMessage: (ticketId: string, payload: { text?: string; images?: File[] }) => Promise<void>;
   canCurrentUserChat: (ticket: Ticket) => boolean;
 
   // Notifications
@@ -106,7 +116,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [tickets, setTickets] = useState<Ticket[]>([]);
-  const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
+  const [notifications, setNotifications] = useState<Notification[]>(() => {
+    const raw = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (!raw) return [];
+
+    try {
+      const parsed = JSON.parse(raw) as Notification[];
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  });
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeChatTicketId, setActiveChatTicketId] = useState<string | null>(null);
   const [chatMessagesByTicket, setChatMessagesByTicket] = useState<Record<string, ChatMessage[]>>({});
@@ -145,9 +165,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
         ? ticket.image_url
         : `${API_BASE_URL}${ticket.image_url}`
       : undefined;
-    const deptName = typeof ticket.requester?.department === 'object' && ticket.requester.department
+    const deptName = ticket.department?.name || (typeof ticket.requester?.department === 'object' && ticket.requester.department
       ? ticket.requester.department.name
-      : (ticket.requester?.department as any) || '-';
+      : (ticket.requester?.department as any) || '-');
 
     return {
       id: String(ticket.id),
@@ -245,6 +265,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
     // role switching disabled after introducing real login.
   }, []);
 
+  const pushNotification = useCallback((payload: Omit<Notification, 'id' | 'timestamp' | 'read'>) => {
+    const created: Notification = {
+      id: String(Date.now()) + Math.random().toString(36).slice(2, 8),
+      title: payload.title,
+      message: payload.message,
+      ticketCode: payload.ticketCode,
+      read: false,
+      timestamp: new Date().toISOString(),
+    };
+
+    setNotifications((prev) => [created, ...prev]);
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const res = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
@@ -289,6 +322,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     formData.append('location', payload.location);
     formData.append('priority', payload.priority);
     formData.append('requester_id', payload.requesterId);
+    if (payload.departmentId) {
+      formData.append('department_id', payload.departmentId);
+    }
     if (payload.image) {
       formData.append('image', payload.image);
     }
@@ -305,8 +341,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const created: BackendTicket = await res.json();
     const mapped = mapTicket(created);
     setTickets((prev) => [mapped, ...prev]);
+    pushNotification({
+      title: 'ส่งคำขอสำเร็จ',
+      message: `${mapped.code} ถูกสร้างเรียบร้อยแล้ว`,
+      ticketCode: mapped.code,
+    });
     return mapped;
-  }, [mapTicket]);
+  }, [mapTicket, pushNotification]);
 
   const updateTicketStage = useCallback(async (id: string, stage: TicketStage) => {
     const res = await fetch(`${API_BASE_URL}/api/tickets/${id}/status`, {
@@ -319,7 +360,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updated: BackendTicket = await res.json();
     const mapped = mapTicket(updated);
     setTickets((prev) => prev.map((t) => (t.id === id ? mapped : t)));
-  }, [mapTicket]);
+
+    pushNotification({
+      title: 'สถานะงานอัปเดต',
+      message: `${mapped.code} เปลี่ยนสถานะเป็น ${mapped.stage}`,
+      ticketCode: mapped.code,
+    });
+  }, [mapTicket, pushNotification]);
 
   const reviewTicket = useCallback(async (id: string, isApproved: boolean) => {
     await updateTicketStage(id, isApproved ? 'done' : 'doing');
@@ -336,7 +383,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const updated: BackendTicket = await res.json();
     const mapped = mapTicket(updated);
     setTickets((prev) => prev.map((t) => (t.id === id ? mapped : t)));
-  }, [mapTicket]);
+
+    pushNotification({
+      title: 'มีผู้รับงานแล้ว',
+      message: `${mapped.code} ถูกมอบหมายให้ ${mapped.assignedToName || 'เจ้าหน้าที่'}`,
+      ticketCode: mapped.code,
+    });
+  }, [mapTicket, pushNotification]);
 
   const openTicketChat = useCallback((ticketId: string) => {
     setActiveChatTicketId(ticketId);
@@ -364,29 +417,33 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const canCurrentUserChat = useCallback(
     (ticket: Ticket) => {
-      if (!ticket.assignedTo) return false;
-      return currentUser.id === ticket.reportedBy || currentUser.id === ticket.assignedTo;
+      if (currentUser.id === ticket.reportedBy) return true;
+      if (ticket.assignedTo && currentUser.id === ticket.assignedTo) return true;
+      return false;
     },
     [currentUser.id]
   );
 
   const sendTicketChatMessage = useCallback(
-    async (ticketId: string, payload: { text?: string; image?: File | null }) => {
+    async (ticketId: string, payload: { text?: string; images?: File[] }) => {
       const ticket = tickets.find((t) => t.id === ticketId);
       if (!ticket) throw new Error('ticket not found');
       if (!canCurrentUserChat(ticket)) throw new Error('permission denied');
 
       const text = payload.text?.trim();
-      const hasImage = Boolean(payload.image);
-      if (!text && !hasImage) return;
+      const files = payload.images || [];
+      if (!text && files.length === 0) return;
 
       const formData = new FormData();
       formData.append('sender_id', currentUser.id);
       if (text) {
         formData.append('text', text);
       }
-      if (payload.image) {
-        formData.append('image', payload.image);
+      files.forEach((file) => {
+        formData.append('images', file);
+      });
+      if (files.length === 1) {
+        formData.append('image', files[0]);
       }
 
       const res = await fetch(
@@ -401,8 +458,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
         throw new Error(err.error || 'failed to send chat message');
       }
 
-      const created: BackendChatMessage = await res.json();
-      upsertChatMessage(mapChatMessage(created));
+      const data: BackendChatMessage | BackendCreateChatMessagesResponse = await res.json();
+      if (typeof (data as BackendChatMessage).id === 'number') {
+        upsertChatMessage(mapChatMessage(data as BackendChatMessage));
+        return;
+      }
+
+      const many = (data as BackendCreateChatMessagesResponse).messages || [];
+      many.forEach((item) => upsertChatMessage(mapChatMessage(item)));
     },
     [canCurrentUserChat, currentUser.id, mapChatMessage, tickets, upsertChatMessage]
   );
@@ -458,7 +521,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       try {
         const payload = JSON.parse(event.data) as ChatWebSocketEvent;
         if (payload.type !== 'message.created') return;
-        upsertChatMessage(mapChatMessage(payload.message));
+        const mapped = mapChatMessage(payload.message);
+        upsertChatMessage(mapped);
+
+        if (mapped.senderId !== currentUser.id) {
+          const currentTicket = tickets.find((item) => item.id === mapped.ticketId);
+          pushNotification({
+            title: 'ข้อความใหม่ในแชทงาน',
+            message: `${currentTicket?.code || 'Ticket'}: ${mapped.senderName} ส่งข้อความใหม่`,
+            ticketCode: currentTicket?.code,
+          });
+        }
       } catch (error) {
         console.error(error);
       }
@@ -467,18 +540,20 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => {
       ws.close();
     };
-  }, [activeChatTicketId, canCurrentUserChat, currentUser.id, mapChatMessage, tickets, upsertChatMessage]);
+  }, [activeChatTicketId, canCurrentUserChat, currentUser.id, mapChatMessage, pushNotification, tickets, upsertChatMessage]);
+
+  useEffect(() => {
+    localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, JSON.stringify(notifications));
+  }, [notifications]);
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
   const markNotificationRead = useCallback((id: string) => {
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-    );
+    setNotifications((prev) => prev.filter((n) => n.id !== id));
   }, []);
 
   const markAllRead = useCallback(() => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    setNotifications([]);
   }, []);
 
   return (
