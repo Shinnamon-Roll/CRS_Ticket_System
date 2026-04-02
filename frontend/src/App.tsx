@@ -5,7 +5,6 @@ import DashboardPage from './pages/DashboardPage';
 import MyRequestsPage from './pages/MyRequestsPage';
 import NewRequestPage from './pages/NewRequestPage';
 import AllRequestsPage from './pages/AllRequestsPage';
-import MyTasksPage from './pages/MyTasksPage';
 import StatisticsPage from './pages/StatisticsPage';
 import SettingsPage from './pages/SettingsPage';
 import StageSummaryPage from './pages/StageSummaryPage';
@@ -36,7 +35,6 @@ export default function App() {
           <Routes>
             <Route path="/" element={currentRole === 'admin' ? <DashboardPage /> : <Navigate to="/my-requests" />} />
             <Route path="/requests" element={<AllRequestsPage />} />
-            <Route path="/tasks" element={currentRole === 'user' ? <MyTasksPage /> : <Navigate to="/" />} />
             <Route path="/stats" element={<StatisticsPage />} />
             <Route path="/admin/management" element={currentRole === 'admin' ? <AdminManagementPage /> : <Navigate to="/" />} />
             <Route path="/my-requests" element={<MyRequestsPage />} />

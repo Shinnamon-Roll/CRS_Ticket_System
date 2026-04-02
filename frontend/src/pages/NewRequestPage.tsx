@@ -1,8 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useApp } from '../context/AppContext';
 import type { Priority } from '../types';
-import { PlusCircle, Send, CheckCircle } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { PlusCircle, Send, CheckCircle, Ticket } from 'lucide-react';
 
 const categories = [
   'ระบบปรับอากาศ',
@@ -18,11 +17,13 @@ const categories = [
 ];
 
 export default function NewRequestPage() {
-  const { currentUser, createTicket, departments } = useApp();
-  const navigate = useNavigate();
+  const { currentUser, createTicket, departments, getUserTickets, language } = useApp();
+  const myTickets = getUserTickets();
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [submitError, setSubmitError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const formRef = useRef<HTMLFormElement | null>(null);
   const [form, setForm] = useState({
     title: '',
     description: '',
@@ -34,8 +35,7 @@ export default function NewRequestPage() {
   });
 
   const submitForm = () => {
-    const formElement = document.querySelector('form') as HTMLFormElement | null;
-    formElement?.requestSubmit();
+    formRef.current?.requestSubmit();
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -56,7 +56,7 @@ export default function NewRequestPage() {
       setSubmitted(true);
       setTimeout(() => {
         setSubmitted(false);
-        navigate('/my-requests');
+        setShowCreateForm(false);
       }, 1500);
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'ไม่สามารถส่ง Request ได้');
@@ -77,19 +77,67 @@ export default function NewRequestPage() {
     );
   }
 
+  if (!showCreateForm) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-5">
+        <div className="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="text-2xl font-bold text-brown-800 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>
+              <Ticket className="w-6 h-6 text-gold-500" />
+              {language === 'th' ? 'Ticket ของฉัน' : 'My Ticket'}
+            </h2>
+            <p className="text-sm text-brown-500 mt-1">
+              {language === 'th' ? `Ticket ที่คุณเปิดไปหาฝ่ายอื่น ${myTickets.length} รายการ` : `${myTickets.length} tickets created by you`}
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowCreateForm(true)}
+            className="inline-flex items-center gap-2 rounded-xl bg-brown-700 text-cream-50 px-4 py-2.5 text-sm font-semibold hover:bg-brown-800"
+          >
+            <PlusCircle className="w-4 h-4" />
+            {language === 'th' ? 'เปิด Ticket ใหม่' : 'Open New Ticket'}
+          </button>
+        </div>
+
+        {myTickets.length === 0 ? (
+          <div className="rounded-2xl border border-brown-100 bg-white p-8 text-center text-brown-400 text-sm">
+            {language === 'th' ? 'ยังไม่มี Ticket ที่เปิด' : 'No tickets yet'}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myTickets.map((ticket) => (
+              <div key={ticket.id} className="rounded-xl border border-brown-100 bg-white px-4 py-3">
+                <p className="text-xs font-bold text-brown-500">{ticket.code}</p>
+                <p className="text-sm font-semibold text-brown-800 mt-0.5">{ticket.title}</p>
+                <p className="text-xs text-brown-500 mt-1 line-clamp-2">{ticket.description}</p>
+                <div className="mt-2 text-xs text-brown-600 flex flex-wrap gap-3">
+                  <span>{language === 'th' ? 'ปลายทาง' : 'Target'}: <b>{ticket.department}</b></span>
+                  <span>{language === 'th' ? 'สถานะ' : 'Status'}: <b>{ticket.stage}</b></span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <h2 className="text-2xl font-bold text-brown-800 flex items-center gap-2" style={{ fontFamily: 'var(--font-display)' }}>
           <PlusCircle className="w-6 h-6 text-gold-500" />
-          ส่ง Request ใหม่
+          {language === 'th' ? 'เปิด Ticket ใหม่' : 'Open New Ticket'}
         </h2>
         <p className="text-sm text-brown-500 mt-1">
-          กรอกรายละเอียดปัญหา ระบบจะสร้าง Ticket ID ให้อัตโนมัติสำหรับค้นหา
+          {language === 'th' ? 'กรอกรายละเอียดปัญหา ระบบจะสร้าง Ticket ID ให้อัตโนมัติสำหรับค้นหา' : 'Fill details to create a new ticket'}
         </p>
       </div>
 
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
         className="bg-white rounded-2xl border border-brown-100/60 p-6 shadow-sm space-y-5"
       >
@@ -249,7 +297,15 @@ export default function NewRequestPage() {
             transition-all duration-300 hover:shadow-xl hover:shadow-brown-700/30 active:scale-[0.98] disabled:opacity-70"
         >
           <Send className="w-4 h-4" />
-          {submitting ? 'กำลังส่ง...' : 'ส่ง Request'}
+          {submitting ? (language === 'th' ? 'กำลังส่ง...' : 'Submitting...') : (language === 'th' ? 'ส่ง Request' : 'Submit Ticket')}
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setShowCreateForm(false)}
+          className="w-full py-2.5 rounded-xl border border-brown-200 text-brown-700 text-sm font-semibold hover:bg-cream-100"
+        >
+          {language === 'th' ? 'กลับไปหน้า Ticket ของฉัน' : 'Back to My Ticket'}
         </button>
       </form>
     </div>

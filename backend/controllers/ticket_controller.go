@@ -312,7 +312,12 @@ func (tc *TicketController) AssignTicket(c *gin.Context) {
 		return
 	}
 
-	result := tc.DB.Model(&models.Ticket{}).Where("id = ?", uint(id)).Update("assignee_id", payload.AssigneeID)
+	updates := map[string]interface{}{"assignee_id": payload.AssigneeID}
+	if ticket.Status == models.StatusRequest {
+		updates["status"] = models.StatusDoing
+	}
+
+	result := tc.DB.Model(&models.Ticket{}).Where("id = ?", uint(id)).Updates(updates)
 	if result.Error != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to assign ticket"})
 		return
